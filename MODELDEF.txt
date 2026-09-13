@@ -1,0 +1,385 @@
+// Quake .mdl models, read by FMDLModel (src/common/models/model_mdl.h).
+//
+// NO Skin LINES. An .mdl carries its skin inside the file, indexed into Quake's
+// palette, and the loader converts it at load time. If one of these ever draws
+// untextured the LOADER failed -- look for the model name in the log rather than
+// hunting a missing PNG.
+//
+// ------------------------------------------------------------------ SCALE ---
+//
+// TWO FRAMES, TWO SCALES, AND THE DIFFERENCE IS NOT ARBITRARY.
+//
+// BODY-FRAME PARTS (torso, holsters, boots) are Scale 1.0 because
+// GetHmdTransform now hands back a MAP-UNIT frame. Quake's player bounding box
+// is 56 units tall, exactly like Doom's, so Quake body geometry is already in
+// Doom's unit system and needs no conversion at all.
+//
+// HAND-FRAME PARTS are ~0.014 because the hand frame is still in METRES -- it
+// carries vr_vunits_per_meter, and existing hand content in this fork depends on
+// that. 13.3 model units of fist at 0.014 is 0.19m, which is a hand. Do not
+// "fix" this to 1.0 to match the torso; they are different frames.
+//
+// -------------------------------------------------------------- PLACEMENT ---
+//
+// PlacementCVars names a cvar prefix and the engine reads <prefix>_ofs_x/_y/_z
+// and <prefix>_yaw/_pitch/_roll live, every frame, folding them into the model's
+// own transform. That is the PART'S FIT -- how this mesh sits once it is in a
+// slot, a property of the mesh.
+//
+// It is NOT where the slot is on your body. That is the rig's job, per slot,
+// through FollowBodyOfs, and it is kept separate on purpose: a fit follows the
+// mesh when you re-tune your proportions, and a seat follows you when you swap
+// the mesh. QuakeVR bakes both into one set of numbers, which is exactly why its
+// offsets cannot be lifted one at a time.
+
+// ============================================================== body frame ==
+
+Model RS_PartTorsoQuake
+{
+	Path "models"
+	Model 0 "vrtorso.mdl"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_torso
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+Model RS_PartHolsterQuake
+{
+	Path "models"
+	Model 0 "legholster.mdl"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_holster
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex HSHL A 0 0
+}
+
+// SHIPPED HERE, not referenced out of another mod.
+//
+// It was pointed at RS_ModelSwapper's copy on the reasoning that two pk3s
+// holding one model is how they drift apart. That reasoning assumed the other
+// mod would always be loaded, and the moment it left the load order the boot
+// silently became invisible -- a hard dependency dressed up as tidiness.
+//
+// A body that needs another mod present to have feet is not a body. The mesh
+// lives here now, under its own path, and the class is named for what it IS
+// rather than for where it came from.
+Model RS_PartBootHeavy
+{
+	Path "models/boot"
+	Model 0 "Boot.md3"
+	Skin 0 "Boot.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_boot
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex BOOT A 0 0
+}
+
+// ============================================================ psprite hands ==
+//
+// THESE ARE PSPRITES, NOT WORLD MODELS, and the difference is the entire reason
+// a hand can hold a gun.
+//
+// A weapon is a psprite -- a view-model drawn in its own pass. A hand drawn as a
+// world actor lives in a different pass and cannot sort against it: it passes
+// THROUGH the weapon rather than closing around it, and no offset or scale fixes
+// that because the two are not in the same space. On a psprite layer the hand is
+// in the weapon's pass, so it wraps the gun and is occluded by it.
+//
+// THE ENGINE PINS THESE TO THE CONTROLLER ON ITS OWN. RenderHUDModel calls
+// GetWeaponTransform (models.cpp:1009) for every psprite model and picks the
+// hand from the caller, or from the layer id when the caller is not a weapon --
+// which is the whole reason a hand model can reach the off hand at all. There is
+// no FollowMainHand here because that flag is the WORLD-actor equivalent of what
+// this path already does.
+//
+// SCALE IS 1.0, NOT A SMALL NUMBER. This path applies its own 0.01 unit
+// conversion on top (models.cpp:1011), so MODELDEF scale here is a multiplier on
+// an already-converted frame, not the conversion itself. The world-actor hand
+// path has no such step and needs ~0.014; carrying that number across drew these
+// at about a seventieth of hand size, which is invisible rather than obviously
+// wrong. RS_HandIdleMain in RS_VR_Unified uses -1.0/1.0 for the same reason.
+//
+// NOAUTOREVERSE because these are two distinct draws of one mesh and the mirror
+// is on the Scale line, where it can be seen.
+
+Model RS_PartHandQuakeMain
+{
+	Path "models"
+	Model 0 "hand.mdl"
+	Scale -1.2 1.2 1.2
+	PlacementCVars rs_bp_handmain
+	NOAUTOREVERSE
+	FollowMainHand
+	FrameIndex QHND A 0 0
+}
+
+Model RS_PartHandQuakeOff
+{
+	Path "models"
+	Model 0 "hand.mdl"
+	Scale 1.2 1.2 1.2
+	PlacementCVars rs_bp_handoff
+	NOAUTOREVERSE
+	FollowOffHand
+	FrameIndex QHND A 0 0
+}
+
+Model RS_PartHandOpenMain
+{
+	Path "models"
+	Model 0 "openhand.mdl"
+	Scale -1.2 1.2 1.2
+	PlacementCVars rs_bp_handmain
+	NOAUTOREVERSE
+	FollowMainHand
+	FrameIndex QHNO A 0 0
+}
+
+Model RS_PartHandOpenOff
+{
+	Path "models"
+	Model 0 "openhand.mdl"
+	Scale 1.2 1.2 1.2
+	PlacementCVars rs_bp_handoff
+	NOAUTOREVERSE
+	FollowOffHand
+	FrameIndex QHNO A 0 0
+}
+
+// WORN BY RS_WorldHands' HAND -- see RS_HandWearBase in body_parts.zs. The same
+// meshes, scales and sliders as the four blocks above, with BaseFrame instead of
+// a FrameIndex because the hand wearing them is decoupled.
+Model RS_HandWearQuakeMain
+{
+	Path "models"
+	Model 0 "hand.mdl"
+	Scale -1.2 1.2 1.2
+	PlacementCVars rs_bp_handmain
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_HandWearQuakeOff
+{
+	Path "models"
+	Model 0 "hand.mdl"
+	Scale 1.2 1.2 1.2
+	PlacementCVars rs_bp_handoff
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
+Model RS_HandWearOpenMain
+{
+	Path "models"
+	Model 0 "openhand.mdl"
+	Scale -1.2 1.2 1.2
+	PlacementCVars rs_bp_handmain
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_HandWearOpenOff
+{
+	Path "models"
+	Model 0 "openhand.mdl"
+	Scale 1.2 1.2 1.2
+	PlacementCVars rs_bp_handoff
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
+// ============================================================== IQM  hands ==
+//
+// The rigged hands from RS_VR_Unified, as a second HAND STYLE. World actors on
+// the controller, exactly like the Quake ones -- so the two are interchangeable
+// at runtime and the rig does not know or care which is in the slot.
+//
+// SCALE IS 0.01 AND THAT IS THE WORLD-PATH NUMBER. The world path is
+// vr_vunits_per_meter, 34 units per metre; the HUD path works out to 173.44. A
+// model scaled for one is wildly wrong on the other, which is the whole "100x"
+// class of bug in one line. These are world actors, so 0.01.
+//
+// BaseFrame, and the actor MUST carry +DECOUPLEDANIMATIONS with it. BaseFrame
+// registers into BaseSpriteModelFrames and that registry is only consulted for a
+// decoupled actor -- the pair without the flag registers the model somewhere
+// nothing reads and sends the lookup down a path never set up. It took the game
+// down on map load with nothing in the log.
+//
+// The rig has ONE clip of 1298 frames: 0-10 are the baked hand shapes, 1289+ the
+// manipulation set. Poses are addressed by NUMBER through ModelFrame, because no
+// sprite letter can name frame 1293 -- which is why that set was authored and
+// unreachable until AActor gained those fields.
+
+Model RS_PartHandIQMMain
+{
+	Path "models/hands"
+	Model 0 "hand_left.iqm"
+	Skin 0 "hand_basecolor.png"
+	PlacementCVars rs_bp_handmain
+	Scale -1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_PartHandIQMOff
+{
+	Path "models/hands"
+	Model 0 "hand_left.iqm"
+	Skin 0 "hand_basecolor.png"
+	PlacementCVars rs_bp_handoff
+	Scale 1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
+// ---- RECOLOURED TORSOS ------------------------------------------------------
+//
+// THE SAME MESH, A DIFFERENT SKIN. vrtorso.mdl carries its own 8-bit skin
+// inside the file -- which is why the block above needs no Skin line -- but a
+// MODELDEF Skin OVERRIDES that embedded one (FMDLModel::AddSkins checks the
+// supplied skin before falling back to its own). So a recolour costs one PNG
+// and one block, not a second model.
+//
+// HOW THE SKINS WERE MADE, because it matters if anyone regenerates them:
+// the embedded skin was decoded through the Quake palette, then every pixel had
+// its HUE replaced while its own LUMINANCE was kept. That is why the grime, the
+// straps, the panel lines and the wear survive -- a flat fill would flatten all
+// of it into a coloured silhouette.
+//
+// Only pixels that were ALREADY COLOURED are shifted. The torso's neutral greys
+// (palette 1 and 2) stay grey, so the model still reads as having metal on it
+// rather than being carved from one material.
+//
+// Saturation is boosted 1.35x rather than merely rotated: the Quake original is
+// muddy, and a straight hue swap comes out olive instead of armour green.
+
+Model RS_PartTorsoGreen
+{
+	Path "models"
+	Model 0 "vrtorso.mdl"
+	Skin 0 "vrtorso_green.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_torso
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+Model RS_PartTorsoBlue
+{
+	Path "models"
+	Model 0 "vrtorso.mdl"
+	Skin 0 "vrtorso_blue.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_torso
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+Model RS_PartTorsoRed
+{
+	Path "models"
+	Model 0 "vrtorso.mdl"
+	Skin 0 "vrtorso_red.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_torso
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+// The extracted original, as a skin rather than the embedded one. Identical to
+// the default -- it exists so the recoloured set and the original are the same
+// KIND of thing, and so anyone editing the base skin has a file to edit.
+Model RS_PartTorsoPlain
+{
+	Path "models"
+	Model 0 "vrtorso.mdl"
+	Skin 0 "vrtorso_skin.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_torso
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+// ---- ARMOUR, WORN -----------------------------------------------------------
+//
+// The armour pickups' own voxels, drawn in the torso slot while you wear that
+// armour -- torsoStyle in body_rig.zs decides which. A .kvx loads here like any
+// mesh: LoadModel tries every model format and falls back to R_LoadKVX
+// (model.cpp:228).
+//
+// THE SKIN LINE IS REQUIRED. A voxel is coloured through a 16x16 palette
+// texture, colour index i at texel (i % 16, i / 16) -- FVoxelModel::AddFace.
+// VOXELDEF hands the renderer that texture itself (models.cpp:2633); MODELDEF
+// does not, and FVoxelModel::RenderFrame binds whatever skin it is given with
+// no fallback. So each block names a PNG of the voxel's own palette, laid out
+// the same way and expanded 6->8 bit exactly as the engine does it.
+//
+// That is also why the red vest is a PNG and not a third voxel: the green
+// vest's geometry with only the fifteen palette entries its green uses turned
+// red. Buckles and greys are untouched -- the same vest, bleeding.
+//
+// AngleOffset 270 is the voxel pack's own VOXELDEF value for these, so the vest
+// faces the way the pickup does. The pivot is the voxel's base: it stands up
+// from the seat, and its centre lands within 1.3 units of the Quake torso's,
+// so it needs no offset to start -- only the fit sliders to finish.
+Model RS_PartVestGreen
+{
+	Path "models"
+	Model 0 "vest_green.kvx"
+	Skin 0 "vest_pal.png"
+	Scale 1.0 1.0 1.0
+	AngleOffset 270
+	PlacementCVars rs_bp_vest
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+Model RS_PartVestBlue
+{
+	Path "models"
+	Model 0 "vest_blue.kvx"
+	Skin 0 "vest_pal.png"
+	Scale 1.0 1.0 1.0
+	AngleOffset 270
+	PlacementCVars rs_bp_vest
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+Model RS_PartVestRed
+{
+	Path "models"
+	Model 0 "vest_green.kvx"
+	Skin 0 "vest_pal_red.png"
+	Scale 1.0 1.0 1.0
+	AngleOffset 270
+	PlacementCVars rs_bp_vest
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}

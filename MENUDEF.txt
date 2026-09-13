@@ -1,0 +1,595 @@
+AddOptionMenu "OptionsMenu"
+{
+	Submenu "VR Body", "RS_VRBodyMain"
+}
+
+// THE POSE VOCABULARY, and the order is load-bearing: these keys are the
+// RPOSE_* enum in body_rig.zs and the two must not drift. Adding one means a
+// line there, a line here, and a case in poseFrame() for every hand style.
+//
+// A NAME, NOT A FRAME NUMBER. What the hand is DOING is the thing that is true
+// across meshes; which frame expresses it is a property of the mesh, and
+// poseFrame() owns that translation per style. That split is why a pose set on
+// this menu looks right on the rigged hand, on Quake's, and on anything added
+// later -- and why the number published to other mods
+// (rs_body_poseframe_main) is deliberately NOT this number.
+OptionValue "RS_BodyPoseVals"
+{
+	0,  "Open - nothing held"
+	1,  "Point"
+	2,  "Trigger finger"
+	3,  "Fist"
+	4,  "Pinch"
+	5,  "Thumb out"
+	6,  "Grip, firing"
+	7,  "Grip, on the trigger"
+	8,  "Grip, thumb lifted"
+	9,  "Holding a round"
+	10, "Holding a shell"
+	11, "Inserting"
+	12, "Holding a slide"
+	13, "Holding a magazine"
+	14, "Holding a foregrip"
+	15, "Holding a forend"
+	16, "Reaching - flat"
+	17, "Reaching - claw"
+	18, "Supporting the other hand"
+	19, "Salute"
+}
+
+// OptionValue takes NUMERIC keys only -- SC_GetFloat parses them and dies on a
+// string. The four style lists below are OptionString because their cvars hold
+// names, not numbers; this one is a real int and stays an OptionValue.
+OptionValue "RS_BodySlotVals"
+{
+	0,  "Torso"
+	3,  "Holster - hip left"
+	4,  "Holster - hip right"
+	5,  "Holster - head left"
+	6,  "Holster - head right"
+	7,  "Holster - pectoral left"
+	8,  "Holster - pectoral right"
+	9,  "Holster - hip left 2"
+	10, "Holster - hip right 2"
+	11, "Pouch"
+	12, "Boot - left"
+	13, "Boot - right"
+}
+
+// "plain" is still registered (body_rig.zs), so an ini that saved it keeps
+// working -- but it is off the list. It is the Quake skin a second time, and a
+// list with two identical entries is not a clean pick.
+OptionString "RS_BodyTorsoStyles"
+{
+	"none",  "None"
+	"quake", "Brown - Quake"
+	"green", "Green"
+	"blue",  "Blue"
+	"red",   "Red"
+}
+
+OptionString "RS_BodyHolsterStyles"
+{
+	"none",  "None"
+	"quake", "Quake leather"
+}
+
+OptionString "RS_BodyHandStyles"
+{
+	"none",  "None"
+	"rs",    "Rigged hands (full poses)"
+	"quake", "Quake fist (coarse)"
+	"open",  "Quake open hand (coarse)"
+}
+
+OptionString "RS_BodyBootStyles"
+{
+	"none",    "None"
+	"heavy",   "Heavy boot"
+}
+
+OptionValue "RS_BodyStoredSize"
+{
+	0, "No scaling - as held"
+	1, "Small"
+	2, "Medium"
+	3, "Large"
+}
+
+OptionMenu "RS_VRBodyHolsters"
+{
+	Title "Body - holsters"
+	StaticText "Grip a gun inside an empty holster to put it away.", 1
+	StaticText "Grip inside a full one and pull to draw it.", 1
+	StaticText ""
+	Option    "Holsters",             "rs_body_holsters",            "OnOff"
+	Option    "Instant store / draw", "rs_body_holster_instant",     "OnOff"
+	Option    "Stored gun size",      "rs_body_holster_size",        "RS_BodyStoredSize"
+	StaticText ""
+	Slider    "Reach to put away",    "rs_body_holster_reach_store", 1.0, 16.0, 0.5, 1
+	Slider    "Reach to draw",        "rs_body_holster_reach_draw",  1.0, 16.0, 0.5, 1
+	Slider    "Pull to draw",         "rs_body_holster_pull_dist",   2.0, 24.0, 0.5, 1
+	StaticText "Map units. Switching holsters off hands every stored", "DarkGray"
+	StaticText "gun back to your inventory. Reach markers on the seats", "DarkGray"
+	StaticText "page show where each holster's centre is.", "DarkGray"
+	StaticText ""
+	StaticText ""
+	StaticText "The holster in reach", 1
+	Option    "Glow when in reach",   "rs_body_holster_glow",          "YesNo"
+	ColorPicker "Glow colour",        "rs_body_holster_glow_color"
+	Slider    "Glow strength",        "rs_body_holster_glow_strength", 0.1, 1.0, 0.05, 2
+	StaticText "Breathes when a grip would store or draw there.", "DarkGray"
+	StaticText ""
+	Option    "Holster trace in the log", "rs_body_holster_debug",     "OnOff"
+	StaticText "[HOLSTER] lines: says why a grip did nothing.", "DarkGray"
+	StaticText ""
+	Submenu   "Each holster -- move, turn, size (live)", "RS_VRBodyEachHolster"
+	Submenu   "Place a holster -- pick one, then sliders", "RS_VRBodySeats"
+	StaticText "Those apply when you close the menu. Or bind", "DarkGray"
+	StaticText "VR Body: placement mode in Controls and grab a", "DarkGray"
+	StaticText "holster to drag it where you want it.", "DarkGray"
+	Submenu   "Fit the stored gun -- LIVE", "RS_VRBodyFits"
+}
+
+OptionMenu "RS_VRBodyMain"
+{
+	Title "VR Body"
+	StaticText "A body made of interchangeable parts, drawn at", 1
+	StaticText "headset rate rather than at the 35Hz tic.", 1
+	StaticText ""
+	Option    "Body",              "rs_body_enabled", "OnOff"
+	StaticText ""
+	StaticText "Torso", 1
+	Option    "Colour",                      "rs_body_style_torso",     "RS_BodyTorsoStyles"
+	Slider    "Transparency",                "rs_body_torso_transparency", 0.0, 0.9, 0.05, 2
+	Option    "Armour changes the colour",   "rs_body_armor_color",     "YesNo"
+	Option    "Wear the armour you pick up", "rs_body_armor_voxel",     "YesNo"
+	Option    "Breathe red near death",      "rs_body_breathe",         "YesNo"
+	Slider    "  Starts below health",       "rs_body_breathe_below",   5, 100, 5, 0
+	Option    "Fade when looking down",      "rs_body_lookdown_fade",   "YesNo"
+	Slider    "  Fade to",                   "rs_body_lookdown_alpha",  0.0, 1.0, 0.05, 2
+	Slider    "  Starts at degrees down",    "rs_body_lookdown_start",  0, 80, 5, 0
+	StaticText "Colour is your torso under 100 armour; 100-149", "DarkGray"
+	StaticText "turns it green, 150+ blue. Picking up a suit puts", "DarkGray"
+	StaticText "its armour on you until you drop below that suit.", "DarkGray"
+	StaticText "Near death it breathes red, faster the closer you are.", "DarkGray"
+	StaticText "Looking down fades it so you can see your feet.", "DarkGray"
+	StaticText ""
+	StaticText "Parts", 1
+	Option    "Holsters",          "rs_body_style_holster",  "RS_BodyHolsterStyles"
+	Option    "Hand - main",       "rs_body_style_handmain", "RS_BodyHandStyles"
+	Option    "Hand - off",        "rs_body_style_handoff",  "RS_BodyHandStyles"
+	Option    "Boots",             "rs_body_style_boot",     "RS_BodyBootStyles"
+	Submenu   "Holsters -- store and draw", "RS_VRBodyHolsters"
+	StaticText ""
+	Option    "Let RS_WorldHands own the hands", "rs_body_defer_hands", "OnOff"
+	StaticText "On: if RS_WorldHands is loaded, its hands are used -- one", "DarkGray"
+	StaticText "hand per controller, able to grab, hold and throw -- and they", "DarkGray"
+	StaticText "WEAR the two styles above. Quake hands sit on their own", "DarkGray"
+	StaticText "sliders; the pose below still drives them either way.", "DarkGray"
+	StaticText "Off with both loaded gives you TWO hands per controller.", "DarkGray"
+	StaticText ""
+	StaticText "Hand pose", 1
+	Option    "Main hand", "rs_body_pose_main", "RS_BodyPoseVals"
+	Option    "Off hand",  "rs_body_pose_off",  "RS_BodyPoseVals"
+	StaticText "What the hand is DOING. Each hand mesh answers in its own", "DarkGray"
+	StaticText "frames, so a pose looks right on any of them. Open means", "DarkGray"
+	StaticText "'nothing to say' and lets the controllers drive the hand.", "DarkGray"
+	StaticText ""
+	StaticText ""
+	StaticText "Body heading -- how the hips follow the head.", 1
+	StaticText "Higher deadzone = holsters stay put while you look.", 1
+	Slider    "Neck deadzone",      "rs_body_yaw_deadzone", 0, 90, 5, 0
+	Slider    "Catch-up rate",      "rs_body_yaw_follow",   0.02, 1.0, 0.01, 2
+	Slider    "Stop tracking past", "rs_body_yaw_maxpitch", 20, 89, 1, 0
+	StaticText ""
+	Submenu   "Fit a mesh to its slot -- LIVE", "RS_VRBodyFits"
+	Submenu   "Fit the body to you",            "RS_VRBodySeats"
+}
+
+OptionMenu "RS_VRBodySeats"
+{
+	Title "Body - seats"
+	StaticText "WHERE a slot sits on YOU. Follows you when you", 1
+	StaticText "swap the mesh in it. Map units from the headset.", 1
+	StaticText ""
+	StaticText "THESE TAKE EFFECT WHEN YOU CLOSE THE MENU.", 1
+	StaticText "They are read by script, and script does not run", 1
+	StaticText "while a menu is open. For live adjustment use", 1
+	StaticText "\"Fit a mesh to its slot\" -- the renderer reads", 1
+	StaticText "those every frame it draws.", 1
+	StaticText ""
+	StaticText "Hands are not here: they ride the controller,", 1
+	StaticText "not you. They are on the mesh page.", 1
+	StaticText ""
+	StaticText "IN-HEADSET PLACEMENT (the bound keys)", "Gold"
+	StaticText "Placement mode moves the AMMO POUCH. Holsters", "DarkGray"
+	StaticText "and body slots stay put, so their symmetry is safe.", "DarkGray"
+	Option    "Let placement mode move body parts too", "rs_body_place_parts", "OnOff"
+	StaticText ""
+	Option    "Slot",              "rs_body_edit_slot", "RS_BodySlotVals"
+	StaticText ""
+	Slider    "Forward / back",    "rs_body_p_fwd",  -64.0, 64.0, 0.01, 3
+	Slider    "Left / right",      "rs_body_p_side",  -64.0, 64.0, 0.01, 3
+	Slider    "Up / down",         "rs_body_p_up",  -64.0, 64.0, 0.01, 3
+	StaticText ""
+	Slider    "Yaw",               "rs_body_p_yaw",  -180.0, 180.0, 5.0, 0
+	Slider    "Pitch",             "rs_body_p_pitch",-180.0, 180.0, 5.0, 0
+	Slider    "Roll",              "rs_body_p_roll", -180.0, 180.0, 5.0, 0
+	Slider    "Scale",             "rs_body_p_scale",  0.05,   4.0, 0.05, 2
+	StaticText ""
+	Command   "Reset this slot",   "netevent rs_body_reset"
+	Command   "Save the body",     "netevent rs_body_save"
+	Command   "Reload the body",   "netevent rs_body_load"
+	Command   "Print every slot",  "netevent rs_body_dump"
+	StaticText ""
+	Option    "Show reach markers", "rs_body_markers", "OnOff"
+}
+
+OptionMenu "RS_VRBodyFits"
+{
+	Title "Body - mesh fits"
+	StaticText "HOW a mesh sits once it is in a slot. Follows the", 1
+	StaticText "mesh when you re-tune your proportions.", 1
+	StaticText ""
+	StaticText "These are read by the renderer every frame, so they", 1
+	StaticText "move while you drag them. Use these for the hands.", 1
+	StaticText ""
+	StaticText "Torso", 1
+	Slider    "X",     "rs_bp_torso_ofs_x", -32.0, 32.0, 0.01, 3
+	Slider    "Y",     "rs_bp_torso_ofs_y", -32.0, 32.0, 0.01, 3
+	Slider    "Z",     "rs_bp_torso_ofs_z", -32.0, 32.0, 0.01, 3
+	Slider    "Yaw",   "rs_bp_torso_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_torso_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_torso_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_torso_scale",   0.05, 4.0, 0.01, 3
+	Slider    "  Width",       "rs_bp_torso_scale_x", 0.2, 10, 0.1, 1
+	Slider    "  Depth",       "rs_bp_torso_scale_y", 0.2, 10, 0.1, 1
+	Slider    "  Height",      "rs_bp_torso_scale_z", 0.2, 10, 0.1, 1
+	StaticText ""
+	StaticText "Armour vest -- worn when you have armour", 1
+	Slider    "X",     "rs_bp_vest_ofs_x", -32.0, 32.0, 0.01, 3
+	Slider    "Y",     "rs_bp_vest_ofs_y", -32.0, 32.0, 0.01, 3
+	Slider    "Z",     "rs_bp_vest_ofs_z", -32.0, 32.0, 0.01, 3
+	Slider    "Yaw",   "rs_bp_vest_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_vest_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_vest_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_vest_scale",   0.05, 4.0, 0.01, 3
+	Slider    "  Width",       "rs_bp_vest_scale_x", 0.2, 10, 0.1, 1
+	Slider    "  Depth",       "rs_bp_vest_scale_y", 0.2, 10, 0.1, 1
+	Slider    "  Height",      "rs_bp_vest_scale_z", 0.2, 10, 0.1, 1
+	StaticText "Yaw 180 if it is on backwards.", "DarkGray"
+	StaticText ""
+	StaticText "Holsters", 1
+	StaticText "Each has its own page now: VR Body > Holsters >", "DarkGray"
+	StaticText "Each holster. They move while you drag them.", "DarkGray"
+	StaticText ""
+	StaticText "Stored gun (every holster)", 1
+	Slider    "X",     "rs_bp_stored_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_stored_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_stored_ofs_z", -32.0, 32.0, 0.1, 1
+	Slider    "Yaw",   "rs_bp_stored_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_stored_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_stored_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_stored_scale",   0.05, 4.0, 0.01, 3
+	StaticText "Trims on top of automatic centring. Put a gun away", "DarkGray"
+	StaticText "to see it. Size presets are on the holsters page.", "DarkGray"
+	StaticText ""
+	StaticText ""
+	StaticText ""
+	StaticText ""
+	StaticText "HANDS ARE ADJUSTED BY THE ENGINE'S OWN CVARS,", 1
+	StaticText "not by the mesh-fit ones above. UseHandOffsets", 1
+	StaticText "folds vr_hand_* straight into the draw, which is", 1
+	StaticText "how RS_Hands does it and why theirs move live.", 1
+	StaticText ""
+	Slider    "Hand size",         "rs_body_hand_scale", 0.05, 4.0, 0.05, 2
+	Submenu   "Hand - main placement", "RS_VRBodyHandMain"
+	Submenu   "Hand - off placement",  "RS_VRBodyHandOff"
+
+	StaticText "Boot", 1
+	Slider    "X",     "rs_bp_boot_ofs_x", -32.0, 32.0, 0.01, 3
+	Slider    "Y",     "rs_bp_boot_ofs_y", -32.0, 32.0, 0.01, 3
+	Slider    "Z",     "rs_bp_boot_ofs_z", -32.0, 32.0, 0.01, 3
+	Slider    "Yaw",   "rs_bp_boot_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_boot_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_boot_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_boot_scale",   0.05, 4.0, 0.01, 3
+	Slider    "  Width",       "rs_bp_boot_scale_x", 0.2, 10, 0.1, 1
+	Slider    "  Depth",       "rs_bp_boot_scale_y", 0.2, 10, 0.1, 1
+	Slider    "  Height",      "rs_bp_boot_scale_z", 0.2, 10, 0.1, 1
+}
+
+// THE ENGINE'S OWN HAND CVARS, not this mod's.
+//
+// MODELDEF UseHandOffsets folds vr_hand_ofs_* and vr_hand_yaw/pitch/roll
+// directly into the same translate and rotate the model is drawn with
+// (models.cpp:1213, 1259), read live every frame. That is the channel
+// RS_HandIdleMain uses and the reason its sliders move a hand while you drag
+// them.
+//
+// PlacementCVars, which the torso and holsters use, is a different channel and
+// it did nothing for the hands here. These are what work.
+//
+// They are GLOBAL: they move every psprite hand on that controller, this mod's
+// and any other's. That is a real cost and it is the price of using the channel
+// the engine already applies.
+OptionMenu "RS_VRBodyHandMain"
+{
+	Title "VR Body - main hand"
+	StaticText "Read by the renderer every frame it draws, so", 1
+	StaticText "these move the hand while you drag them.", 1
+	StaticText ""
+	StaticText "Position", 1
+	Slider "Forward / back", "rs_bp_handmain_ofs_x", -100.0, 100.0, 0.5, 1
+	Slider "Left / right",   "rs_bp_handmain_ofs_y", -100.0, 100.0, 0.5, 1
+	Slider "Down / up",      "rs_bp_handmain_ofs_z", -100.0, 100.0, 0.5, 1
+	StaticText ""
+	StaticText "Rotation", 1
+	Slider "Yaw",   "rs_bp_handmain_yaw",   -180, 180, 1, 1
+	Slider "Pitch", "rs_bp_handmain_pitch", -180, 180, 1, 1
+	Slider "Roll",  "rs_bp_handmain_roll",  -180, 180, 1, 1
+	StaticText ""
+	Slider "Size",  "rs_bp_handmain_scale", 0.05, 4.0, 0.01, 3
+	StaticText ""
+	Command "NUDGE IT 0.05 (proves the cvar moves it)", "netevent rs_body_handtest"
+	SafeCommand "Reset this hand", "resetcvar rs_bp_handmain_ofs_x rs_bp_handmain_ofs_y rs_bp_handmain_ofs_z rs_bp_handmain_yaw rs_bp_handmain_pitch rs_bp_handmain_roll rs_bp_handmain_scale"
+}
+
+OptionMenu "RS_VRBodyHandOff"
+{
+	Title "VR Body - off hand"
+	StaticText "Read by the renderer every frame it draws, so", 1
+	StaticText "these move the hand while you drag them.", 1
+	StaticText ""
+	StaticText "Position", 1
+	Slider "Forward / back", "rs_bp_handoff_ofs_x", -100.0, 100.0, 0.5, 1
+	Slider "Left / right",   "rs_bp_handoff_ofs_y", -100.0, 100.0, 0.5, 1
+	Slider "Down / up",      "rs_bp_handoff_ofs_z", -100.0, 100.0, 0.5, 1
+	StaticText ""
+	StaticText "Rotation", 1
+	Slider "Yaw",   "rs_bp_handoff_yaw",   -180, 180, 1, 1
+	Slider "Pitch", "rs_bp_handoff_pitch", -180, 180, 1, 1
+	Slider "Roll",  "rs_bp_handoff_roll",  -180, 180, 1, 1
+	StaticText ""
+	Slider "Size",  "rs_bp_handoff_scale", 0.05, 4.0, 0.01, 3
+	StaticText ""
+	SafeCommand "Reset this hand", "resetcvar rs_bp_handoff_ofs_x rs_bp_handoff_ofs_y rs_bp_handoff_ofs_z rs_bp_handoff_yaw rs_bp_handoff_pitch rs_bp_handoff_roll rs_bp_handoff_scale"
+}
+
+// EACH HOLSTER, BY ID. Every slider here is read by the renderer through that
+// holster's own PlacementPrefix, so it moves while you drag it. Generated --
+// one page per holster, identical but for the ID.
+OptionMenu "RS_VRBodyEachHolster"
+{
+	Title "Each holster"
+	StaticText "Pick one. Its sliders move it while you drag.", 1
+	StaticText "Its reach and glow move with it.", 1
+	StaticText ""
+	Submenu "0  --  hip left", "RS_VRBodyHol0"
+	Submenu "1  --  hip right", "RS_VRBodyHol1"
+	Submenu "2  --  head left", "RS_VRBodyHol2"
+	Submenu "3  --  head right", "RS_VRBodyHol3"
+	Submenu "4  --  pectoral left", "RS_VRBodyHol4"
+	Submenu "5  --  pectoral right", "RS_VRBodyHol5"
+	Submenu "6  --  hip left 2", "RS_VRBodyHol6"
+	Submenu "7  --  hip right 2", "RS_VRBodyHol7"
+	Submenu "8  --  pouch", "RS_VRBodyHol8"
+}
+
+OptionMenu "RS_VRBodyHol0"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 0 -- hip left"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol0_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol0_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol0_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol0_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol0_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol0_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol0_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol0_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol0_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol0_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol0_ofs_x rs_bp_hol0_ofs_y rs_bp_hol0_ofs_z rs_bp_hol0_yaw rs_bp_hol0_pitch rs_bp_hol0_roll rs_bp_hol0_scale rs_bp_hol0_scale_x rs_bp_hol0_scale_y rs_bp_hol0_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol1"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 1 -- hip right"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol1_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol1_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol1_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol1_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol1_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol1_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol1_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol1_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol1_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol1_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol1_ofs_x rs_bp_hol1_ofs_y rs_bp_hol1_ofs_z rs_bp_hol1_yaw rs_bp_hol1_pitch rs_bp_hol1_roll rs_bp_hol1_scale rs_bp_hol1_scale_x rs_bp_hol1_scale_y rs_bp_hol1_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol2"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 2 -- head left"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol2_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol2_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol2_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol2_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol2_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol2_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol2_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol2_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol2_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol2_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol2_ofs_x rs_bp_hol2_ofs_y rs_bp_hol2_ofs_z rs_bp_hol2_yaw rs_bp_hol2_pitch rs_bp_hol2_roll rs_bp_hol2_scale rs_bp_hol2_scale_x rs_bp_hol2_scale_y rs_bp_hol2_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol3"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 3 -- head right"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol3_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol3_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol3_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol3_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol3_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol3_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol3_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol3_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol3_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol3_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol3_ofs_x rs_bp_hol3_ofs_y rs_bp_hol3_ofs_z rs_bp_hol3_yaw rs_bp_hol3_pitch rs_bp_hol3_roll rs_bp_hol3_scale rs_bp_hol3_scale_x rs_bp_hol3_scale_y rs_bp_hol3_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol4"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 4 -- pectoral left"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol4_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol4_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol4_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol4_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol4_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol4_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol4_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol4_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol4_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol4_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol4_ofs_x rs_bp_hol4_ofs_y rs_bp_hol4_ofs_z rs_bp_hol4_yaw rs_bp_hol4_pitch rs_bp_hol4_roll rs_bp_hol4_scale rs_bp_hol4_scale_x rs_bp_hol4_scale_y rs_bp_hol4_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol5"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 5 -- pectoral right"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol5_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol5_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol5_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol5_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol5_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol5_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol5_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol5_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol5_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol5_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol5_ofs_x rs_bp_hol5_ofs_y rs_bp_hol5_ofs_z rs_bp_hol5_yaw rs_bp_hol5_pitch rs_bp_hol5_roll rs_bp_hol5_scale rs_bp_hol5_scale_x rs_bp_hol5_scale_y rs_bp_hol5_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol6"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 6 -- hip left 2"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol6_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol6_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol6_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol6_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol6_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol6_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol6_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol6_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol6_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol6_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol6_ofs_x rs_bp_hol6_ofs_y rs_bp_hol6_ofs_z rs_bp_hol6_yaw rs_bp_hol6_pitch rs_bp_hol6_roll rs_bp_hol6_scale rs_bp_hol6_scale_x rs_bp_hol6_scale_y rs_bp_hol6_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol7"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 7 -- hip right 2"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol7_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol7_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol7_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol7_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol7_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol7_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol7_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol7_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol7_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol7_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol7_ofs_x rs_bp_hol7_ofs_y rs_bp_hol7_ofs_z rs_bp_hol7_yaw rs_bp_hol7_pitch rs_bp_hol7_roll rs_bp_hol7_scale rs_bp_hol7_scale_x rs_bp_hol7_scale_y rs_bp_hol7_scale_z"
+}
+
+OptionMenu "RS_VRBodyHol8"
+{
+	Class "RS_HolsterPageMenu"
+	Title "Holster 8 -- pouch"
+	StaticText "Moves while you drag. The reach and the glow", 1
+	StaticText "follow the holster you see.", 1
+	StaticText ""
+	Slider    "X",     "rs_bp_hol8_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",     "rs_bp_hol8_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",     "rs_bp_hol8_ofs_z", -32.0, 32.0, 0.1, 1
+	StaticText "The holster's own axes, not the room's.", "DarkGray"
+	StaticText ""
+	Slider    "Yaw",   "rs_bp_hol8_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch", "rs_bp_hol8_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",  "rs_bp_hol8_roll",  -180.0, 180.0, 1, 0
+	StaticText ""
+	Slider    "OVERALL SIZE", "rs_bp_hol8_scale",   0.05, 4.0, 0.01, 2
+	Slider    "  Width",      "rs_bp_hol8_scale_x", 0.05, 4.0, 0.05, 2
+	Slider    "  Depth",      "rs_bp_hol8_scale_y", 0.05, 4.0, 0.05, 2
+	Slider    "  Height",     "rs_bp_hol8_scale_z", 0.05, 4.0, 0.05, 2
+	StaticText ""
+	SafeCommand "Reset this holster", "resetcvar rs_bp_hol8_ofs_x rs_bp_hol8_ofs_y rs_bp_hol8_ofs_z rs_bp_hol8_yaw rs_bp_hol8_pitch rs_bp_hol8_roll rs_bp_hol8_scale rs_bp_hol8_scale_x rs_bp_hol8_scale_y rs_bp_hol8_scale_z"
+}
+

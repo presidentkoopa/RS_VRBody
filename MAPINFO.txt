@@ -1,0 +1,4 @@
+GameInfo
+{
+	AddEventHandlers = "RS_VRBodyRig", "RS_VRBodyHolsters"
+}

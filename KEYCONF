@@ -1,0 +1,14 @@
+// In-headset placement. Bind these and you can put every worn thing where it
+// belongs by reaching for it, instead of guessing at fourteen sets of sliders
+// through a menu that pauses the game.
+//
+// addmenukey needs a section opened first -- without this line every key below
+// logs "You must use addkeysection first." and never reaches the controls menu.
+addkeysection "VR Body" rs_vrbody_keys
+addmenukey "VR Body: placement mode" rs_body_edit
+addmenukey "VR Body: grab (main)"    rs_body_grab_main
+addmenukey "VR Body: grab (off)"     rs_body_grab_off
+
+alias rs_body_edit      "netevent rs_body_edit"
+alias rs_body_grab_main "netevent rs_body_grab_main"
+alias rs_body_grab_off  "netevent rs_body_grab_off"

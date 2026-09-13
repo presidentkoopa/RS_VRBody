@@ -1,0 +1,416 @@
+// RS_VRBody
+//
+// Everything is live. The only way to find where a body sits under a headset is
+// to move it while wearing one, so nothing here needs a rebuild or a reload.
+
+user bool   rs_body_enabled = true;
+
+// ---------------------------------------------------------------- styles ---
+// What fills each kind of slot. "none" empties it. Adding a variant means a
+// class, a MODELDEF block and one line in the rig's registry -- not a change
+// here, since these are free-form strings looked up at runtime.
+user string rs_body_style_torso    = "quake";
+user string rs_body_style_holster  = "quake";
+user string rs_body_style_handmain = "rs";
+user string rs_body_style_handoff  = "rs";
+user string rs_body_style_boot     = "heavy";
+
+// ------------------------------------------------------------ the torso ---
+// rs_body_style_torso above is the BASE colour: what you wear with no armour.
+// These decide what overrides it, every tic, and nothing ever mixes -- one
+// colour can honestly show one thing.
+//
+//   armor_color  the torso's colour follows how much armour you HAVE:
+//                0-99 your base colour, 100-149 green, 150+ blue.
+//   armor_voxel  picking up a suit puts that armour's voxel ON you -- green
+//                armour the green vest, blue armour the blue. It comes off
+//                when your armour falls below that suit's range (100 green,
+//                150 blue), and only another suit puts it back: bonuses
+//                change the colour, never the vest. Wins over armor_color.
+//   breathe      below breathe_below health a red copy of the torso fades in
+//                and out over it, slowly, faster the closer you are to dying.
+//                A sine, never a flash -- photosensitivity; see syncBreath.
+user bool  rs_body_armor_color     = true;
+user bool  rs_body_armor_voxel     = true;
+user bool  rs_body_breathe         = true;
+user int   rs_body_breathe_below   = 25;
+
+// Looking down. The torso fades to lookdown_alpha as your head pitches past
+// lookdown_start degrees below level, fully faded 25 degrees further down, and
+// comes back as you look up -- so your feet are not behind a solid chest.
+user bool  rs_body_lookdown_fade   = true;
+user float rs_body_lookdown_alpha  = 0.5;
+user float rs_body_lookdown_start  = 30.0;
+
+// A standing see-through for the torso and vest, 0 solid to 0.9 nearly gone.
+// The look-down fade works on top of it.
+user float rs_body_torso_transparency = 0.0;
+
+// ------------------------------------------------------------- the seats ---
+// Seven sliders and a selector saying which slot they drive, rather than seven
+// times fourteen sliders nobody can find anything in. Picking a slot LOADS its
+// numbers into these; moving one WRITES BACK to the selected slot.
+user int    rs_body_edit_slot = 0;
+
+user float  rs_body_p_fwd   = 0.0;
+user float  rs_body_p_side  = 0.0;
+user float  rs_body_p_up    = -17.0;
+user float  rs_body_p_yaw   = 0.0;
+user float  rs_body_p_pitch = 0.0;
+user float  rs_body_p_roll  = 0.0;
+user float  rs_body_p_scale = 1.0;
+
+// ------------------------------------------------------------ part fits ----
+// Read by the ENGINE, not by script: MODELDEF PlacementCVars names the prefix
+// and the renderer folds these into the model's own transform every frame.
+// These are how a MESH sits in its slot; the sliders above are where the slot is
+// on your body. Two different questions, kept apart deliberately.
+user float rs_bp_torso_ofs_x = 0.0;
+user float rs_bp_torso_ofs_y = 0.0;
+user float rs_bp_torso_ofs_z = 0.0;
+user float rs_bp_torso_yaw   = 0.0;
+user float rs_bp_torso_pitch = 0.0;
+user float rs_bp_torso_roll  = 0.0;
+
+// The armour vest's own fit. Separate from the torso's because it is another
+// mesh -- a 31 x 13 x 17 voxel standing on its own base -- and one set of
+// numbers cannot fit two meshes. Its scale lines are with the others below.
+user float rs_bp_vest_ofs_x = 0.0;
+user float rs_bp_vest_ofs_y = 0.0;
+user float rs_bp_vest_ofs_z = 0.0;
+user float rs_bp_vest_yaw   = 0.0;
+user float rs_bp_vest_pitch = 0.0;
+user float rs_bp_vest_roll  = 0.0;
+
+user float rs_bp_holster_ofs_x = 0.0;
+user float rs_bp_holster_ofs_y = 0.0;
+user float rs_bp_holster_ofs_z = 0.0;
+user float rs_bp_holster_yaw   = 0.0;
+user float rs_bp_holster_pitch = 0.0;
+user float rs_bp_holster_roll  = 0.0;
+
+user float rs_bp_handmain_ofs_x = 0.0;
+user float rs_bp_handmain_ofs_y = 0.0;
+user float rs_bp_handmain_ofs_z = 0.0;
+user float rs_bp_handmain_yaw   = 0.0;
+user float rs_bp_handmain_pitch = 0.0;
+user float rs_bp_handmain_roll  = 0.0;
+
+user float rs_bp_handoff_ofs_x = 0.0;
+user float rs_bp_handoff_ofs_y = 0.0;
+user float rs_bp_handoff_ofs_z = 0.0;
+user float rs_bp_handoff_yaw   = 0.0;
+user float rs_bp_handoff_pitch = 0.0;
+user float rs_bp_handoff_roll  = 0.0;
+
+user float rs_bp_boot_ofs_x = 0.0;
+user float rs_bp_boot_ofs_y = 0.0;
+user float rs_bp_boot_ofs_z = 0.0;
+user float rs_bp_boot_yaw   = 0.0;
+user float rs_bp_boot_pitch = 0.0;
+user float rs_bp_boot_roll  = 0.0;
+
+// The engine also reads <prefix>_scale and <prefix>_scale_x/_y/_z from the same
+// PlacementCVars block (models.cpp:899-912). A scale here sizes the MESH, which
+// is why it is worth having alongside the per-slot scale: nine holsters share
+// one pouch mesh, so a mesh that is the wrong size is ONE number here instead
+// of nine over there. Absent reads as 0 and the engine ignores it, so the
+// default of 1.0 is the neutral value, not a magic one.
+user float rs_bp_torso_scale   = 1.0;
+user float rs_bp_torso_scale_x = 1.0;
+user float rs_bp_torso_scale_y = 1.0;
+user float rs_bp_torso_scale_z = 1.0;
+user float rs_bp_vest_scale   = 1.0;
+user float rs_bp_vest_scale_x = 1.0;
+user float rs_bp_vest_scale_y = 1.0;
+user float rs_bp_vest_scale_z = 1.0;
+user float rs_bp_holster_scale   = 1.0;
+user float rs_bp_holster_scale_x = 1.0;
+user float rs_bp_holster_scale_y = 1.0;
+user float rs_bp_holster_scale_z = 1.0;
+user float rs_bp_handmain_scale   = 1.0;
+user float rs_bp_handmain_scale_x = 1.0;
+user float rs_bp_handmain_scale_y = 1.0;
+user float rs_bp_handmain_scale_z = 1.0;
+user float rs_bp_handoff_scale   = 1.0;
+user float rs_bp_handoff_scale_x = 1.0;
+user float rs_bp_handoff_scale_y = 1.0;
+user float rs_bp_handoff_scale_z = 1.0;
+user float rs_bp_boot_scale   = 1.0;
+user float rs_bp_boot_scale_x = 1.0;
+user float rs_bp_boot_scale_y = 1.0;
+user float rs_bp_boot_scale_z = 1.0;
+
+// ------------------------------------------------------------ hand pose ---
+// DEAD. SUPERSEDED BY rs_body_pose_main / rs_body_pose_off. DO NOT RE-WIRE.
+//
+// These are the original two-pose scheme: one grip shape, one open shape, both
+// as raw hand.mdl frame indices. The 20-pose vocabulary (RPOSE_*, further down)
+// replaced them and nothing in ZScript has read these since.
+//
+// They were still on two menu sliders until 2026-09-08, which is the only
+// reason this note exists: the menu wrote cvars nobody read, and the rig read
+// cvars no menu wrote, so the pose sliders moved and did nothing while looking
+// exactly like they worked. The menu now points at rs_body_pose_main/off.
+//
+// Kept declared, not deleted, so an already-written ini carrying them stays
+// valid. Delete them once no ini in use has them.
+user int rs_body_hand_pose_grip = 2;
+user int rs_body_hand_pose_open = 5;
+
+// How close a hand has to be to pick a part up, in map units.
+// Placement mode moves the AMMO POUCH by default and nothing else: holsters and
+// body slots are placed and symmetrical, and a stray grab in there used to shift
+// one and break that quietly. Turn this on to pick body parts up again.
+user bool rs_body_place_parts = false;
+
+user float rs_body_grab_radius = 12.0;
+
+// -------------------------------------------------------------- body yaw ---
+// How the body's heading follows your head. Holsters hang off the BODY; driven
+// straight off head yaw they orbit your face and blind reach is impossible.
+user float rs_body_yaw_deadzone = 65.0;   // free head turn before the hips move
+user float rs_body_yaw_follow   = 0.06;   // catch-up rate past the deadzone
+user float rs_body_yaw_maxpitch = 55.0;   // stop tracking past this look-down
+
+// Show where the code thinks your hands and holsters are: red main hand, blue
+// off hand, green holsters, gold while held. If a dot is not on your drawn
+// hand, the reach test is measuring from the wrong place -- which fails
+// silently and looks exactly like the grab being broken.
+user bool rs_body_markers = false;
+
+// Size of both Quake hands.
+user float rs_body_hand_scale = 1.0;
+
+// ------------------------------------------------------------- hand pose ---
+// WHAT the hand is doing, not which frame it is on. Any mod may write these;
+// each hand style maps the value to its own mesh. Absent or 0 is "nothing in
+// the hand", the right answer for a hand with nothing to do.
+//
+//   0 open           7 grip (on a gun)     14 hold foregrip
+//   1 point          8 grip, thumb up      15 hold forend
+//   2 trigger        9 hold round          16 reach (flat)
+//   3 fist          10 hold shell          17 reach claw (relaxed)
+//   4 pinch         11 insert              18 support
+//   5 thumb out     12 hold slide          19 salute
+//   6 grip+fire     13 hold magazine
+user int   rs_body_pose_main = 0;
+user int   rs_body_pose_off = 0;
+
+user float rs_body_pose_blend = 4.0;
+
+// ---- the pose, TRANSLATED, for whoever is actually drawing the hand --------
+//
+// The two above are a POSE INDEX in this mod's vocabulary. These are the FRAME
+// NUMBER that index resolves to on the hand mesh currently in the slot, and
+// they exist because those are not the same thing across packages:
+// RS_WorldHands numbers eleven poses and then jumps to 1289 where the
+// manipulation set really lives, while this mod numbers twenty contiguously.
+// The two agree up to index 6 and diverge from 7 -- which is every pose worth
+// having. An index passed across that boundary makes the wrong shape, silently.
+//
+// Written every tic by RS_VRBody (body_rig.zs, publishPose) whether or not
+// this mod drew the hand. -1 means "nothing to say", which leaves the hand to
+// its own idle behaviour rather than forcing it open.
+//
+// nosave: a derived value, recomputed every tic. Persisting it would restore a
+// stale frame for one tic on load, and one tic of the wrong hand shape at a
+// map start is exactly the kind of thing nobody ever tracks down.
+nosave int rs_body_poseframe_main = -1;
+nosave int rs_body_poseframe_off  = -1;
+
+// ------------------------------------------------------- physical holsters ---
+// Grip a real weapon inside an empty holster: it goes in. Grip empty-handed
+// inside a full one: the gun comes with your hand, and goes live once you have
+// pulled it far enough -- PATH LENGTH relative to the holster, so a curved draw
+// counts the same as a straight one and walking does not count at all.
+// WHERE a holster is comes from the seats above; nothing here moves one.
+user bool  rs_body_holsters            = true;
+// Reach, in map units from the holster's centre. RENAMED 2026-09-11 from
+// rs_body_holster_seat_radius / _draw_radius (6.0), which caught grips meant for
+// other things: a saved ini outranks a default forever, so the smaller default
+// needed new names to arrive.
+user float rs_body_holster_reach_store = 4.0;
+user float rs_body_holster_reach_draw  = 4.0;
+user float rs_body_holster_pull_dist   = 8.0;
+
+// Store and draw resolve in the same tic instead of the ~16-tic lower/raise.
+// Off also makes the other hand wait out each switch -- PendingWeapon is one
+// field shared by both hands.
+user bool  rs_body_holster_instant     = true;
+
+// How big a stored gun is. 0 no scaling: the size it is in your hand, so it
+// does not change size as you draw it. 1-3 fit every gun to one size -- small,
+// medium, large -- measured off its own model.
+user int   rs_body_holster_size        = 0;
+
+// The holster your hand could act on right now breathes in this colour.
+user bool  rs_body_holster_glow          = true;
+user color rs_body_holster_glow_color    = "40 ff 80";
+user float rs_body_holster_glow_strength = 0.6;
+
+// [HOLSTER] lines in the log: reach in and out, and for every grip at a holster
+// what it did or exactly why it did nothing.
+user bool  rs_body_holster_debug         = true;
+
+// The stored gun's fit, read by the RENDERER through the prop's PlacementPrefix,
+// so these move it while the menu is open. Trims on top of the automatic
+// centring and orientation, shared by every holster. Script never writes them.
+user float rs_bp_stored_ofs_x = 0.0;
+user float rs_bp_stored_ofs_y = 0.0;
+user float rs_bp_stored_ofs_z = 0.0;
+user float rs_bp_stored_yaw   = 0.0;
+user float rs_bp_stored_pitch = 0.0;
+user float rs_bp_stored_roll  = 0.0;
+user float rs_bp_stored_scale = 1.0;
+
+// ---- yielding the hand slots -----------------------------------------------
+//
+// RS_WorldHands puts its own actor on each controller, using the same mesh and
+// the same follow-hand frame as this rig's hand parts. Both loaded means two
+// hands per controller, and neither looks broken enough to notice quickly.
+//
+// On (the default) this rig leaves both hand slots empty whenever
+// RS_HandWorldMain exists, because that hand can grab, hold, pass and throw
+// and this one can only pose. Costs nothing when RS_WorldHands is absent.
+//
+// Off puts the body's own hands back -- for comparing two hand styles, or if
+// RS_WorldHands is ever loaded with its own hands switched off.
+user bool  rs_body_defer_hands = true;
+
+// ---- each holster's own fit ------------------------------------------------
+// One set per holster, by ID: 0 hip left, 1 hip right, 2 head left, 3 head right,
+// 4 pectoral left, 5 pectoral right, 6 hip left 2, 7 hip right 2, 8 pouch.
+// Read by the RENDERER through each holster's PlacementPrefix (rs_bp_hol<ID>),
+// which outranks the MODELDEF's shared rs_bp_holster -- so each holster's own
+// page moves that holster while the menu is open. The reach test, the glow and
+// the stored gun follow where the holster is DRAWN (body_rig.zs, SlotWorld).
+//
+// Defaults are the shared rs_bp_holster_* values these replaced, as they stood
+// in the ini on 2026-09-11 (pitch 90, scale 0.5 / 0.7 / 0.4), so every holster
+// starts exactly where it already was.
+
+// 0 -- hip left
+user float rs_bp_hol0_ofs_x = 0.0;
+user float rs_bp_hol0_ofs_y = 0.0;
+user float rs_bp_hol0_ofs_z = 0.0;
+user float rs_bp_hol0_yaw = 0.0;
+user float rs_bp_hol0_pitch = 90.0;
+user float rs_bp_hol0_roll = 0.0;
+user float rs_bp_hol0_scale = 1.0;
+user float rs_bp_hol0_scale_x = 0.5;
+user float rs_bp_hol0_scale_y = 0.7;
+user float rs_bp_hol0_scale_z = 0.4;
+
+// 1 -- hip right
+user float rs_bp_hol1_ofs_x = 0.0;
+user float rs_bp_hol1_ofs_y = 0.0;
+user float rs_bp_hol1_ofs_z = 0.0;
+user float rs_bp_hol1_yaw = 0.0;
+user float rs_bp_hol1_pitch = 90.0;
+user float rs_bp_hol1_roll = 0.0;
+user float rs_bp_hol1_scale = 1.0;
+user float rs_bp_hol1_scale_x = 0.5;
+user float rs_bp_hol1_scale_y = 0.7;
+user float rs_bp_hol1_scale_z = 0.4;
+
+// 2 -- head left
+user float rs_bp_hol2_ofs_x = 0.0;
+user float rs_bp_hol2_ofs_y = 0.0;
+user float rs_bp_hol2_ofs_z = 0.0;
+user float rs_bp_hol2_yaw = 0.0;
+user float rs_bp_hol2_pitch = 90.0;
+user float rs_bp_hol2_roll = 0.0;
+user float rs_bp_hol2_scale = 1.0;
+user float rs_bp_hol2_scale_x = 0.5;
+user float rs_bp_hol2_scale_y = 0.7;
+user float rs_bp_hol2_scale_z = 0.4;
+
+// 3 -- head right
+user float rs_bp_hol3_ofs_x = 0.0;
+user float rs_bp_hol3_ofs_y = 0.0;
+user float rs_bp_hol3_ofs_z = 0.0;
+user float rs_bp_hol3_yaw = 0.0;
+user float rs_bp_hol3_pitch = 90.0;
+user float rs_bp_hol3_roll = 0.0;
+user float rs_bp_hol3_scale = 1.0;
+user float rs_bp_hol3_scale_x = 0.5;
+user float rs_bp_hol3_scale_y = 0.7;
+user float rs_bp_hol3_scale_z = 0.4;
+
+// 4 -- pectoral left
+user float rs_bp_hol4_ofs_x = 0.0;
+user float rs_bp_hol4_ofs_y = 0.0;
+user float rs_bp_hol4_ofs_z = 0.0;
+user float rs_bp_hol4_yaw = 0.0;
+user float rs_bp_hol4_pitch = 90.0;
+user float rs_bp_hol4_roll = 0.0;
+user float rs_bp_hol4_scale = 1.0;
+user float rs_bp_hol4_scale_x = 0.5;
+user float rs_bp_hol4_scale_y = 0.7;
+user float rs_bp_hol4_scale_z = 0.4;
+
+// 5 -- pectoral right
+user float rs_bp_hol5_ofs_x = 0.0;
+user float rs_bp_hol5_ofs_y = 0.0;
+user float rs_bp_hol5_ofs_z = 0.0;
+user float rs_bp_hol5_yaw = 0.0;
+user float rs_bp_hol5_pitch = 90.0;
+user float rs_bp_hol5_roll = 0.0;
+user float rs_bp_hol5_scale = 1.0;
+user float rs_bp_hol5_scale_x = 0.5;
+user float rs_bp_hol5_scale_y = 0.7;
+user float rs_bp_hol5_scale_z = 0.4;
+
+// 6 -- hip left 2
+user float rs_bp_hol6_ofs_x = 0.0;
+user float rs_bp_hol6_ofs_y = 0.0;
+user float rs_bp_hol6_ofs_z = 0.0;
+user float rs_bp_hol6_yaw = 0.0;
+user float rs_bp_hol6_pitch = 90.0;
+user float rs_bp_hol6_roll = 0.0;
+user float rs_bp_hol6_scale = 1.0;
+user float rs_bp_hol6_scale_x = 0.5;
+user float rs_bp_hol6_scale_y = 0.7;
+user float rs_bp_hol6_scale_z = 0.4;
+
+// 7 -- hip right 2
+user float rs_bp_hol7_ofs_x = 0.0;
+user float rs_bp_hol7_ofs_y = 0.0;
+user float rs_bp_hol7_ofs_z = 0.0;
+user float rs_bp_hol7_yaw = 0.0;
+user float rs_bp_hol7_pitch = 90.0;
+user float rs_bp_hol7_roll = 0.0;
+user float rs_bp_hol7_scale = 1.0;
+user float rs_bp_hol7_scale_x = 0.5;
+user float rs_bp_hol7_scale_y = 0.7;
+user float rs_bp_hol7_scale_z = 0.4;
+
+// 8 -- pouch
+user float rs_bp_hol8_ofs_x = 0.0;
+user float rs_bp_hol8_ofs_y = 0.0;
+user float rs_bp_hol8_ofs_z = 0.0;
+user float rs_bp_hol8_yaw = 0.0;
+user float rs_bp_hol8_pitch = 90.0;
+user float rs_bp_hol8_roll = 0.0;
+user float rs_bp_hol8_scale = 1.0;
+user float rs_bp_hol8_scale_x = 0.5;
+user float rs_bp_hol8_scale_y = 0.7;
+user float rs_bp_hol8_scale_z = 0.4;
+
+// ---- a holster's page lights that holster --------------------------------
+// Set to 1 by RS_HolsterPageMenu while holster <ID>'s page is open, 0 when you
+// leave it. The holster's highlight copy names it as its VisibleCVar, which the
+// RENDERER reads every frame -- so it lights while the menu has the game
+// paused. `user` because CVARINFO requires a scope and a user cvar is what the
+// renderer's GetCVar(consoleplayer) reads live -- the placement sliders prove it;
+// `noarchive` so a menu closed by a crash cannot leave one lit next launch.
+user noarchive float rs_body_hl0 = 0.0;
+user noarchive float rs_body_hl1 = 0.0;
+user noarchive float rs_body_hl2 = 0.0;
+user noarchive float rs_body_hl3 = 0.0;
+user noarchive float rs_body_hl4 = 0.0;
+user noarchive float rs_body_hl5 = 0.0;
+user noarchive float rs_body_hl6 = 0.0;
+user noarchive float rs_body_hl7 = 0.0;
+user noarchive float rs_body_hl8 = 0.0;

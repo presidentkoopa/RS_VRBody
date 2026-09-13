@@ -1,0 +1,13 @@
+version "4.15.1"
+
+// 4.15.1 because body_holsters.zs calls TransformByNamedBone, which the engine
+// declares native version("4.15.1") -- at 4.10 it is "not accessible" and the
+// whole mod refuses to compile. The minimum that call needs, not the newest:
+// RS_WorldHands and RS_VR_PistolTest run 5.0.0 on this engine if that is ever
+// wanted, but a bump changes the rules for every file here at once.
+
+#include "zscript/body_parts.zs"
+#include "zscript/body_rig.zs"
+#include "zscript/body_hands.zs"
+#include "zscript/body_holsters.zs"
+#include "zscript/body_menu.zs"
