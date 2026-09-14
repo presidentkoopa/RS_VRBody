@@ -474,6 +474,14 @@ user float rs_bp_armleft_scale_x  = 1.0;
 user float rs_bp_armleft_scale_y  = 1.0;
 user float rs_bp_armleft_scale_z  = 1.0;
 
+// FADES NEAR YOUR EYES (plan 4b idea 5): an arm brought up to your face dissolves in
+// a fine dither from _far map units away and is gone by _near, instead of filling
+// the view. far 0 turns it off. Read by the renderer on each arm's fit prefix.
+user float rs_bp_armright_eyefade_near = 4.0;
+user float rs_bp_armright_eyefade_far  = 10.0;
+user float rs_bp_armleft_eyefade_near  = 4.0;
+user float rs_bp_armleft_eyefade_far   = 10.0;
+
 // HOW EACH ARM BENDS -- the reach chain's tuning, read by the RENDERER every frame
 // under the prefix the rig registers (rs_arm_rt / rs_arm_lf). Only the ones worth a
 // slider are declared; an undeclared suffix keeps the engine's default (actor.zs).
@@ -497,6 +505,24 @@ user float rs_arm_lf_twist       = 1.0;
 user float rs_arm_lf_twist_ofs   = 0.0;
 user float rs_arm_lf_swivel_rate = 0.0;
 user float rs_arm_lf_twist_rate  = 0.0;
+
+// THE BENDING WRIST (plan 4b idea 1), rigged hand only: how much its forearm stub
+// turns along the forearm (0 = the old rigid hand) and the most it turns. Read by
+// the renderer.
+user float rs_arm_rt_aim     = 1.0;
+user float rs_arm_rt_aim_max = 70.0;
+user float rs_arm_lf_aim     = 1.0;
+user float rs_arm_lf_aim_max = 70.0;
+
+// THE ELBOW KEEPS OFF WALLS (plan 4b idea 6): the arm's thickness in its own model
+// units -- the spiked right gauntlet is wider -- and the most, in degrees, the elbow
+// swings away. 0 radius turns it off. Rate 0 is instant. Read by the renderer.
+user float rs_arm_rt_clear_radius = 3.5;
+user float rs_arm_rt_clear_max    = 100.0;
+user float rs_arm_rt_clear_rate   = 0.0;
+user float rs_arm_lf_clear_radius = 2.8;
+user float rs_arm_lf_clear_max    = 100.0;
+user float rs_arm_lf_clear_rate   = 0.0;
 
 // WHERE THE ARM MEETS THE HAND, per hand style, in that hand's model units and axes,
 // added live by the renderer to the measured wrist socket.

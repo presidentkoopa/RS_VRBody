@@ -1074,6 +1074,9 @@ class RS_VRBodyHolsters : EventHandler
 			p.FollowBodyOfs  = (rel.X * fx + rel.Y * fy, rel.X * rx + rel.Y * ry, rel.Z);
 			p.FollowBodyYaw  = by;
 			p.FollowBodyMode = 2;
+			// Turns with the holster at display rate; a snap turn stays a snap.
+			p.FollowBodyYawInterp = true;
+			if (rig.SnapTurnThisTic()) p.ClearInterpolation();
 		}
 	}
 

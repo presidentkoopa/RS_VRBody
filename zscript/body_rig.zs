@@ -279,6 +279,7 @@ class RS_VRBodyRig : EventHandler
 	// Ported from RS_Holsters, including the part that is not obvious.
 	private void updateBodyYaw(PlayerPawn pawn)
 	{
+		snapTurn = false;
 		if (!bodyYawInit)
 		{
 			bodyYawInit = true;
@@ -298,6 +299,11 @@ class RS_VRBodyRig : EventHandler
 		double turnDelta = normalizeDeg(pawn.VRTurnYaw - lastTurnYaw);
 		lastTurnYaw = pawn.VRTurnYaw;
 		if (turnDelta != 0) mBodyYaw = normalizeDeg(mBodyYaw + turnDelta);
+		// A SNAP TURN: every body part's heading jumps this tic, and drawing that
+		// interpolated would sweep it round over one tic (a 45-degree snap is 17.5
+		// degrees a frame) instead of snapping. Stick turning moves a few degrees a
+		// tic and stays interpolated.
+		snapTurn = abs(turnDelta) > 10.0;
 
 		// THE HANDS (plan 4b idea 9). Both hands held out in front say where the
 		// body is facing better than the head does -- you look around while you
@@ -880,6 +886,10 @@ class RS_VRBodyRig : EventHandler
 	Vector3 drawnAt[16];
 	bool    drawnValid[16];
 	double  BodyYaw() { return mBodyYaw; }
+	// True on the tic a snap turn moved the body: anything else seated in the body
+	// frame at display rate (body_holsters.zs's stored guns) clears its interpolation.
+	private bool snapTurn;
+	bool    SnapTurnThisTic() { return snapTurn; }
 	// Placement mode moves holsters rather than using them; the holsters stand down.
 	bool    EditModeOn() { return editMode; }
 
@@ -986,6 +996,12 @@ class RS_VRBodyRig : EventHandler
 
 		double sc = sScale[s];
 		a.Scale = (sc, sc);
+
+		// DRAWN AT DISPLAY RATE: last tic's heading turned toward this one, so a
+		// smooth turn does not tick at 35Hz. A snap turn stays a snap -- cleared
+		// after every write above, position and angles included.
+		a.FollowBodyYawInterp = true;
+		if (snapTurn) a.ClearInterpolation();
 	}
 
 	// ONE HAND PER CONTROLLER, AND SOMEBODY ELSE MAY ALREADY OWN IT.
@@ -1147,6 +1163,9 @@ class RS_VRBodyRig : EventHandler
 		a.pitch = 0;
 		a.roll  = 0;
 		a.Scale = (1.0, 1.0);   // the size is the fit's _scale, never a second writer
+		// The shoulders turn with the torso at display rate; a snap stays a snap.
+		a.FollowBodyYawInterp = true;
+		if (snapTurn) a.ClearInterpolation();
 
 		// The rig's joints and directions in the arm's MODEL space (the IQM file's
 		// (x, z, y)): the arm's own side outward, file down and file back, and the
@@ -1174,12 +1193,25 @@ class RS_VRBodyRig : EventHandler
 		if (!hd) { a.ClearModelReachChain(0); return; }
 
 		// THE WRIST SOCKETS, in each hand's model space and units (plan 3c/3g):
-		// the rigged hand's forearm stub, 2.604 map units behind its palm; the Quake
-		// hands' shared 15-vertex cuff. Their sliders add live on top.
+		// the Quake hands' shared 15-vertex cuff; the rigged hand's wrist at its
+		// palm, 0.5 map units back (1.47 model units). Their sliders add live on top.
+		//
+		// THE BENDING WRIST (plan 4b idea 1, IK_ADDITIONS_IMPL_NOTES.md): after the
+		// solve the rigged hand's Root_joint turns its forearm stub along the solved
+		// forearm -- up to rs_arm_*_aim_max degrees, weighted by rs_arm_*_aim -- while
+		// HANDPALM and the fingers stay on the controller. It used to be a rigid stub
+		// 2.604 map units behind the palm, which poked through the gauntlet whenever
+		// the wrist bent. The Quake hands have no stub and keep their cuff.
 		if (sock == 1)
+		{
 			a.SetModelReachTarget(0, hd, (-6.90, 1.43, -1.10), (1, 0, 0), (0, 0, 0), 'rs_arm_sock_quake');
+			a.SetModelReachTargetJoint(0, 'None');
+		}
 		else
-			a.SetModelReachTarget(0, hd, (0, 7.659, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_rs');
+		{
+			a.SetModelReachTarget(0, hd, (0, 1.47, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_rs');
+			a.SetModelReachTargetJoint(0, 'Root_joint', (0, 0, 0), 70);
+		}
 	}
 
 	// ARM SIZE FROM YOUR OWN REACH (plan 4b idea 2). Arms straight out to the

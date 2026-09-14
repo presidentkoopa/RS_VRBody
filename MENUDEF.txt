@@ -706,6 +706,21 @@ OptionMenu "RS_VRBodyArms"
 	Slider    "Smooth elbow (0 off)",          "rs_arm_lf_swivel_rate",  0, 60, 1, 0
 	Slider    "Smooth twist (0 off)",          "rs_arm_lf_twist_rate",   0, 60, 1, 0
 	StaticText "If twist or elbow look busy, try smoothing at 30.", "DarkGray"
+	StaticText ""
+	StaticText "Wrists, walls and your eyes", 1
+	Slider    "Right wrist bends",             "rs_arm_rt_aim",               0.0, 1.0, 0.05, 2
+	Slider    "  Most it bends (degrees)",     "rs_arm_rt_aim_max",           0, 90, 1, 0
+	Slider    "Left wrist bends",              "rs_arm_lf_aim",               0.0, 1.0, 0.05, 2
+	Slider    "  Most it bends (degrees)",     "rs_arm_lf_aim_max",           0, 90, 1, 0
+	StaticText "0 is the old rigid hand. Rigged hands only.", "DarkGray"
+	Slider    "Right elbow keeps off walls",   "rs_arm_rt_clear_radius",      0.0, 8.0, 0.1, 1
+	Slider    "Left elbow keeps off walls",    "rs_arm_lf_clear_radius",      0.0, 8.0, 0.1, 1
+	StaticText "How thick each arm is to walls. 0 is off.", "DarkGray"
+	Slider    "Right arm fades from (eye)",    "rs_bp_armright_eyefade_far",  0.0, 24.0, 0.5, 1
+	Slider    "  Gone at",                     "rs_bp_armright_eyefade_near", 0.0, 24.0, 0.5, 1
+	Slider    "Left arm fades from (eye)",     "rs_bp_armleft_eyefade_far",   0.0, 24.0, 0.5, 1
+	Slider    "  Gone at",                     "rs_bp_armleft_eyefade_near",  0.0, 24.0, 0.5, 1
+	StaticText "Map units from your eyes. Fades from 0 is off.", "DarkGray"
 }
 
 // Read by script, so these apply when the menu closes. The arm fit sliders on the
