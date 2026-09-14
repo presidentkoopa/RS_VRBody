@@ -713,13 +713,20 @@ OptionMenu "RS_VRBodyArms"
 OptionMenu "RS_VRBodyArmSeat"
 {
 	Title "Body - shoulders"
-	StaticText "Where the shoulders sit, measured from the torso's", 1
-	StaticText "own seat. These apply when you close the menu.", 1
+	StaticText "The shoulder is a point on the torso model, so it", 1
+	StaticText "follows the torso when you resize it.", 1
+	StaticText "These apply when you close the menu.", 1
 	StaticText ""
-	Slider    "Forward / back",   "rs_body_arm_seat_fwd",  -16.0, 16.0, 0.1, 1
-	Slider    "Out to the sides", "rs_body_arm_seat_side",   0.0, 16.0, 0.1, 1
-	Slider    "Up / down",        "rs_body_arm_seat_up",   -10.0, 30.0, 0.1, 1
+	StaticText "On the torso model", 1
+	Slider    "Front / back",     "rs_body_arm_shoulder_x", -8.0,  8.0, 0.1, 1
+	Slider    "Out to the sides", "rs_body_arm_shoulder_y",  0.0, 16.0, 0.1, 1
+	Slider    "Height",           "rs_body_arm_shoulder_z", -4.0, 20.0, 0.1, 1
 	StaticText ""
-	SafeCommand "Reset the shoulders", "resetcvar rs_body_arm_seat_fwd rs_body_arm_seat_side rs_body_arm_seat_up"
+	StaticText "Trims, in map units", 1
+	Slider    "Forward / back",   "rs_body_arm_trim_fwd",  -8.0, 8.0, 0.1, 1
+	Slider    "Out to the sides", "rs_body_arm_trim_side", -8.0, 8.0, 0.1, 1
+	Slider    "Up / down",        "rs_body_arm_trim_up",   -8.0, 8.0, 0.1, 1
+	StaticText ""
+	SafeCommand "Reset the shoulders", "resetcvar rs_body_arm_shoulder_x rs_body_arm_shoulder_y rs_body_arm_shoulder_z rs_body_arm_trim_fwd rs_body_arm_trim_side rs_body_arm_trim_up"
 }
 

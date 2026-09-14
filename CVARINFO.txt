@@ -430,12 +430,25 @@ user bool  rs_body_arm_armor_color = true;
 // on screen. If an arm crosses the body to reach the other hand, turn this on.
 user bool  rs_body_arm_swap = false;
 
-// WHERE THE SHOULDERS SIT, on top of the torso's own seat, in the body's axes
-// (forward, out to the side, up), map units. Read by script: these apply when the
-// menu closes. The arm fit sliders below move the arm live.
-user float rs_body_arm_seat_fwd  = 1.0;
-user float rs_body_arm_seat_side = 6.75;
-user float rs_body_arm_seat_up   = 13.65;
+// WHERE THE SHOULDERS SIT: a point ON THE TORSO MODEL, in vrtorso.mdl's own units
+// (x front/back, y out to the side, z up), carried through the torso's fit sliders
+// (rs_bp_torso_scale, _scale_x/_y/_z, _ofs_z) -- so resizing the torso moves the
+// shoulders with it. The defaults are the arms mockup renders the owner chose as the
+// target (compose_mockup.py): the torso's (-1.3, 0, 13) on the Slayer's shoulder
+// line, with the Slayer's own shoulder joints 7.49 out -- 10.0 on the torso at its
+// 0.75 fit. The old fixed seat used 6.75 out, which sank the top of each arm into
+// the torso's pads. (For reference, the torso's shoulder caps centre at z 15.7,
+// |y| 9.3..10.3, top z 17.1.) Assumes the torso fit yaw of -180 (front is -x).
+// Read by script: these apply when the menu closes.
+user float rs_body_arm_shoulder_x = -1.3;
+user float rs_body_arm_shoulder_y = 10.0;
+user float rs_body_arm_shoulder_z = 13.0;
+// Trims on top, in the body's axes (forward, out, up), map units. RENAMED from
+// rs_body_arm_seat_fwd/_side/_up, which were the whole seat (1.0, 6.75, 13.65):
+// a saved ini outranks a default, and those saved values would now count twice.
+user float rs_body_arm_trim_fwd  = 0.0;
+user float rs_body_arm_trim_side = 0.0;
+user float rs_body_arm_trim_up   = 0.0;
 
 // Each arm's FIT -- read by the RENDERER through MODELDEF PlacementCVars, so these
 // move the arm while the menu is open. _scale is the arm size; "Calibrate arms"

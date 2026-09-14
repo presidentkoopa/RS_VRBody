@@ -1105,13 +1105,34 @@ class RS_VRBodyRig : EventHandler
 	// on every pickup. The arm's PlacementCVars fit moves it live on top.
 	//
 	// The chain is re-asserted every tic: idempotent, and it survives a load.
+	// THE SHOULDER, AS A POINT ON THE TORSO MESH carried through the torso's fit,
+	// by the renderer's own sums (models.cpp ObjectToWorldMatrix: the fit's uniform
+	// and per-axis scale, with its offset added before the scale) -- so the arms
+	// stay on the shoulders when the torso is resized. Returned relative to the
+	// pawn's headset, in the body's axes. At the torso fit yaw of -180 the mesh's
+	// front is -x, so its x comes out as forward negated; a different torso yaw
+	// would need that sign changed. Magnitude only on the side, the arm picks it.
+	private double, double, double shoulderSeat(bool right)
+	{
+		double sc = cvf("rs_bp_torso_scale",   1.0); if (sc <= 0.0) sc = 1.0;
+		double sx = cvf("rs_bp_torso_scale_x", 1.0); if (sx <= 0.0) sx = 1.0;
+		double sy = cvf("rs_bp_torso_scale_y", 1.0); if (sy <= 0.0) sy = 1.0;
+		double sz = cvf("rs_bp_torso_scale_z", 1.0); if (sz <= 0.0) sz = 1.0;
+		double mx = cvf("rs_body_arm_shoulder_x", -1.3);
+		double my = cvf("rs_body_arm_shoulder_y", 10.0);
+		double mz = cvf("rs_body_arm_shoulder_z", 13.0) + cvf("rs_bp_torso_ofs_z", 0.0);
+		double side = my * sc * sy + cvf("rs_body_arm_trim_side", 0.0);
+		double f  = sFwd[RSLOT_TORSO] - mx * sc * sx + cvf("rs_body_arm_trim_fwd", 0.0);
+		double sd = sSide[RSLOT_TORSO] + (right ? side : -side);
+		double u  = sUp[RSLOT_TORSO] + mz * sc * sz + cvf("rs_body_arm_trim_up", 0.0);
+		return f, sd, u;
+	}
+
 	private void placeArm(PlayerPawn pawn, Actor a, int s)
 	{
 		bool right = (s == RSLOT_ARM_R);
-		double side = cvf("rs_body_arm_seat_side", 6.75);
-		double f  = sFwd[RSLOT_TORSO]  + cvf("rs_body_arm_seat_fwd", 1.0);
-		double sd = sSide[RSLOT_TORSO] + (right ? side : -side);
-		double u  = sUp[RSLOT_TORSO]   + cvf("rs_body_arm_seat_up", 13.65);
+		double f, sd, u;
+		[f, sd, u] = shoulderSeat(right);
 
 		double by = mBodyYaw;
 		double fx = cos(by), fy = sin(by);
@@ -1175,13 +1196,15 @@ class RS_VRBodyRig : EventHandler
 			Console.Printf("\c[Red]RS_VRBody: no hand positions to measure -- hold both controllers out and try again");
 			return;
 		}
+		double sf, ssd, su;
+		[sf, ssd, su] = shoulderSeat(true);
 		double span  = (m - o).Length();
-		double reach = (span - 2.0 * cvf("rs_body_arm_seat_side", 6.75)) * 0.5;
+		double reach = (span - 2.0 * abs(ssd - sSide[RSLOT_TORSO])) * 0.5;
 		double size  = clamp(reach / 20.147, 0.7, 1.5);
 		setf("rs_bp_armright_scale", size);
 		setf("rs_bp_armleft_scale",  size);
 
-		double shoulderZ = pawn.HmdPos.Z + sUp[RSLOT_TORSO] + cvf("rs_body_arm_seat_up", 13.65);
+		double shoulderZ = pawn.HmdPos.Z + su;
 		double handsZ    = (m.Z + o.Z) * 0.5;
 		Console.Printf("\c[Gold]RS_VRBody: hands %.1f apart, so each arm is %.1f shoulder to palm -- arm size %.2f",
 			span, reach, size);
