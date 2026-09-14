@@ -171,3 +171,35 @@ class RS_PartHandIQMBase : RS_BodyPart
 
 class RS_PartHandIQMMain : RS_PartHandIQMBase {}
 class RS_PartHandIQMOff  : RS_PartHandIQMBase {}
+
+// ----------------------------------------------------------------- arms ----
+//
+// THE SLAYER'S ARMS BETWEEN YOUR TORSO AND YOUR HANDS. The engine's reach chain
+// (actor.zs SetModelReachChain) bends each one every drawn frame so its wrist
+// lands in the hand actually on the controller -- RS_WorldHands' hand when that
+// mod owns the slot, this rig's own otherwise. The hand leads and is never moved.
+//
+// DECOUPLED WITH A BaseFrame, as the engine notes ask: a decoupled model with no
+// animation draws its bind pose, which is exactly what the solve starts from. A
+// REAL spawn sprite, never TNT1 (see RS_PartHandIQMBase).
+//
+// ONE CLASS PER LOOK because MODELDEF binds per class: the full arm or just the
+// forearm, each plain or wearing the armour tint. The rig picks among them
+// (armStyle), so a pickup swaps the gauntlet the same way it swaps the torso.
+class RS_PartArmBase : RS_BodyPart abstract
+{
+	Default { +DECOUPLEDANIMATIONS; }
+	States { Spawn: TRSO A -1; Stop; }
+}
+class RS_PartArmSlayerR          : RS_PartArmBase {}
+class RS_PartArmSlayerRGreen     : RS_PartArmBase {}
+class RS_PartArmSlayerRBlue      : RS_PartArmBase {}
+class RS_PartArmSlayerL          : RS_PartArmBase {}
+class RS_PartArmSlayerLGreen     : RS_PartArmBase {}
+class RS_PartArmSlayerLBlue      : RS_PartArmBase {}
+class RS_PartForearmSlayerR      : RS_PartArmBase {}
+class RS_PartForearmSlayerRGreen : RS_PartArmBase {}
+class RS_PartForearmSlayerRBlue  : RS_PartArmBase {}
+class RS_PartForearmSlayerL      : RS_PartArmBase {}
+class RS_PartForearmSlayerLGreen : RS_PartArmBase {}
+class RS_PartForearmSlayerLBlue  : RS_PartArmBase {}

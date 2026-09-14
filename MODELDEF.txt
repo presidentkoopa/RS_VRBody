@@ -383,3 +383,185 @@ Model RS_PartVestRed
 	USEACTORROLL
 	FrameIndex TRSO A 0 0
 }
+
+// ================================================================= the arms ==
+//
+// The Slayer's arms, cut from the old RS_VRIK rip (models/slayer/PROVENANCE.md).
+// Bent every drawn frame by the engine's reach chain onto the hand on each
+// controller; the rig registers the chain and the target (body_rig.zs placeArm).
+//
+// PivotOffset IS THE SHOULDER JOINT, in the IQM's FILE order -- the one value the
+// engine converts itself (models.cpp). The part's position is the shoulder seat, so
+// the mesh sits and turns on its own shoulder.
+//
+// SurfaceSkin ON EVERY SURFACE even though the meshes name their textures: a mesh
+// whose skin fails to resolve does not draw and says nothing. Surface order is the
+// IQM's mesh order (PROVENANCE.md). The armour looks change surface 0 only -- the
+// gauntlet.
+//
+// PlacementCVars is the arm's FIT and its _scale is the arm size (plan 4b idea 2
+// writes it). Facing is found on the fit Yaw; nothing here guesses it.
+
+Model RS_PartArmSlayerR
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartArmSlayerRGreen
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_green.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartArmSlayerRBlue
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_blue.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartArmSlayerL
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+Model RS_PartArmSlayerLGreen
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_green.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+Model RS_PartArmSlayerLBlue
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_blue.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+// FOREARM ONLY (plan 4b idea 10): the upper arm's mesh is cut away; its joints and
+// the reach chain are unchanged, so the forearm still bends onto the hand.
+Model RS_PartForearmSlayerR
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerRGreen
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_green.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerRBlue
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_blue.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerL
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerLGreen
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_green.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerLBlue
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_blue.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}

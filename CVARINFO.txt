@@ -414,3 +414,95 @@ user noarchive float rs_body_hl5 = 0.0;
 user noarchive float rs_body_hl6 = 0.0;
 user noarchive float rs_body_hl7 = 0.0;
 user noarchive float rs_body_hl8 = 0.0;
+
+// ----------------------------------------------------------------- the arms ---
+// The Slayer's arms between your torso and your hands (plan: Engine docs/
+// VR_BODY_IK_RETURN_PLAN.md). "slayer" the whole arm, "forearm" just the forearm,
+// "none" no arm on that side.
+user string rs_body_style_armright = "slayer";
+user string rs_body_style_armleft  = "slayer";
+
+// The gauntlet follows your armour like the torso: 100-149 green, 150+ blue.
+user bool  rs_body_arm_armor_color = true;
+
+// The engine mirrors every IQM on load, so which drawn arm is "right" is confirmed
+// on screen. If an arm crosses the body to reach the other hand, turn this on.
+user bool  rs_body_arm_swap = false;
+
+// WHERE THE SHOULDERS SIT, on top of the torso's own seat, in the body's axes
+// (forward, out to the side, up), map units. Read by script: these apply when the
+// menu closes. The arm fit sliders below move the arm live.
+user float rs_body_arm_seat_fwd  = 1.0;
+user float rs_body_arm_seat_side = 6.75;
+user float rs_body_arm_seat_up   = 13.65;
+
+// Each arm's FIT -- read by the RENDERER through MODELDEF PlacementCVars, so these
+// move the arm while the menu is open. _scale is the arm size; "Calibrate arms"
+// writes it from your own reach.
+user float rs_bp_armright_ofs_x   = 0.0;
+user float rs_bp_armright_ofs_y   = 0.0;
+user float rs_bp_armright_ofs_z   = 0.0;
+user float rs_bp_armright_yaw     = 0.0;
+user float rs_bp_armright_pitch   = 0.0;
+user float rs_bp_armright_roll    = 0.0;
+user float rs_bp_armright_scale   = 1.0;
+user float rs_bp_armright_scale_x = 1.0;
+user float rs_bp_armright_scale_y = 1.0;
+user float rs_bp_armright_scale_z = 1.0;
+user float rs_bp_armleft_ofs_x    = 0.0;
+user float rs_bp_armleft_ofs_y    = 0.0;
+user float rs_bp_armleft_ofs_z    = 0.0;
+user float rs_bp_armleft_yaw      = 0.0;
+user float rs_bp_armleft_pitch    = 0.0;
+user float rs_bp_armleft_roll     = 0.0;
+user float rs_bp_armleft_scale    = 1.0;
+user float rs_bp_armleft_scale_x  = 1.0;
+user float rs_bp_armleft_scale_y  = 1.0;
+user float rs_bp_armleft_scale_z  = 1.0;
+
+// HOW EACH ARM BENDS -- the reach chain's tuning, read by the RENDERER every frame
+// under the prefix the rig registers (rs_arm_rt / rs_arm_lf). Only the ones worth a
+// slider are declared; an undeclared suffix keeps the engine's default (actor.zs).
+user float rs_arm_rt_stretch_max = 1.25;
+user float rs_arm_rt_pole_out    = 1.0;
+user float rs_arm_rt_pole_down   = 0.6;
+user float rs_arm_rt_pole_back   = 0.35;
+user float rs_arm_rt_align       = 1.0;
+user float rs_arm_rt_align_max   = 40.0;
+user float rs_arm_rt_twist       = 1.0;
+user float rs_arm_rt_twist_ofs   = 0.0;
+user float rs_arm_rt_swivel_rate = 0.0;
+user float rs_arm_rt_twist_rate  = 0.0;
+user float rs_arm_lf_stretch_max = 1.25;
+user float rs_arm_lf_pole_out    = 1.0;
+user float rs_arm_lf_pole_down   = 0.6;
+user float rs_arm_lf_pole_back   = 0.35;
+user float rs_arm_lf_align       = 1.0;
+user float rs_arm_lf_align_max   = 40.0;
+user float rs_arm_lf_twist       = 1.0;
+user float rs_arm_lf_twist_ofs   = 0.0;
+user float rs_arm_lf_swivel_rate = 0.0;
+user float rs_arm_lf_twist_rate  = 0.0;
+
+// WHERE THE ARM MEETS THE HAND, per hand style, in that hand's model units and axes,
+// added live by the renderer to the measured wrist socket.
+user float rs_arm_sock_rs_ofs_x    = 0.0;
+user float rs_arm_sock_rs_ofs_y    = 0.0;
+user float rs_arm_sock_rs_ofs_z    = 0.0;
+user float rs_arm_sock_quake_ofs_x = 0.0;
+user float rs_arm_sock_quake_ofs_y = 0.0;
+user float rs_arm_sock_quake_ofs_z = 0.0;
+
+// ------------------------------------------------ the body follows your hands ---
+// When BOTH hands are held out in front of the body, the body turns toward where
+// they point instead of only following the head (plan 4b idea 9). With a hand down
+// the heading is exactly the head rule above. 0 turns it off.
+user float rs_body_yaw_hands          = 1.0;
+user float rs_body_yaw_hands_min      = 6.0;    // a hand this far out (map units) starts to count
+user float rs_body_yaw_hands_span     = 6.0;    // ... and counts fully this much further out
+user float rs_body_yaw_hands_fwd      = 0.0;    // in front of the body: cos of the angle off its heading
+user float rs_body_yaw_hands_fwd_span = 0.5;
+user float rs_body_yaw_hands_low      = 30.0;   // a hand this far below the headset is hanging, not aiming
+user float rs_body_yaw_hands_deadzone = 10.0;
+user float rs_body_yaw_hands_follow   = 0.25;
+user float rs_body_yaw_hands_maxstep  = 0.0;    // degrees per tic while the hands steer, 0 off

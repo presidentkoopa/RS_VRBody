@@ -2,3 +2,10 @@
 *.pk3
 __pycache__/
 *.bak
+
+# THE SLAYER ARMS' MESHES AND TEXTURES ARE DOOM ETERNAL ASSETS. They stay on disk and
+# in the locally built pk3, and are NEVER committed or pushed -- this repo has a
+# GitHub remote. Scoped to these two patterns only; PROVENANCE.md beside them is
+# tracked and says where they came from.
+models/slayer/*.iqm
+models/slayer/*.png

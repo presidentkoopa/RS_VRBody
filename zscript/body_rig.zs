@@ -36,6 +36,11 @@ enum RS_BodySlotId
 	RSLOT_HOLSTER_8,   // Pouch
 	RSLOT_BOOT_L,
 	RSLOT_BOOT_R,
+	// The arms come LAST on purpose: the slot loop decides the torso and the hands
+	// before them, and an arm needs both. Appended, so every saved slot index above
+	// keeps its meaning.
+	RSLOT_ARM_R,
+	RSLOT_ARM_L,
 	RSLOT_COUNT
 }
 
@@ -80,7 +85,8 @@ enum RS_BodyFrame
 {
 	RFRAME_BODY = 0,
 	RFRAME_HAND_MAIN,
-	RFRAME_HAND_OFF
+	RFRAME_HAND_OFF,
+	RFRAME_ARM          // hangs in the body frame, bent onto a hand by the engine
 }
 
 class RS_VRBodyRig : EventHandler
@@ -185,6 +191,8 @@ class RS_VRBodyRig : EventHandler
 		if (s == RSLOT_HAND_MAIN)                        return "handmain";
 		if (s == RSLOT_HAND_OFF)                         return "handoff";
 		if (s >= RSLOT_HOLSTER_0 && s <= RSLOT_HOLSTER_8) return "holster";
+		if (s == RSLOT_ARM_R)                            return "armright";
+		if (s == RSLOT_ARM_L)                            return "armleft";
 		return "boot";
 	}
 
@@ -192,6 +200,7 @@ class RS_VRBodyRig : EventHandler
 	{
 		if (s == RSLOT_HAND_MAIN) return RFRAME_HAND_MAIN;
 		if (s == RSLOT_HAND_OFF)  return RFRAME_HAND_OFF;
+		if (s == RSLOT_ARM_R || s == RSLOT_ARM_L) return RFRAME_ARM;
 		return RFRAME_BODY;
 	}
 
@@ -213,6 +222,8 @@ class RS_VRBodyRig : EventHandler
 			case RSLOT_HOLSTER_8:  return "Pouch";
 			case RSLOT_BOOT_L:     return "Boot left";
 			case RSLOT_BOOT_R:     return "Boot right";
+			case RSLOT_ARM_R:      return "Arm right";
+			case RSLOT_ARM_L:      return "Arm left";
 		}
 		return "?";
 	}
@@ -277,21 +288,77 @@ class RS_VRBodyRig : EventHandler
 		lastTurnYaw = pawn.VRTurnYaw;
 		if (turnDelta != 0) mBodyYaw = normalizeDeg(mBodyYaw + turnDelta);
 
-		// Yaw stops meaning anything near-vertical: looking at the floor, a
-		// small head movement swings it wildly. Freeze rather than chase noise.
-		if (abs(pawn.HmdPitch) > cvf("rs_body_yaw_maxpitch", 55.0)) return;
+		// THE HANDS (plan 4b idea 9). Both hands held out in front say where the
+		// body is facing better than the head does -- you look around while you
+		// aim. handsHeading answers how much they count (0 when either hand is
+		// down, near the body or behind it) and where they point. With 0 every line
+		// below is exactly the head rule it replaced. Checked offline at 35Hz with
+		// the owner's settings (_old\...\armcut_2026-09-14\body_yaw_sim.py).
+		double handsYaw;
+		double w = handsHeading(pawn, handsYaw);
 
-		double d = normalizeDeg(pawn.HmdYaw - mBodyYaw);
+		// Yaw stops meaning anything near-vertical: looking at the floor, a
+		// small head movement swings it wildly. Freeze rather than chase noise --
+		// unless the hands are steering: aiming low while looking down is normal.
+		bool headOk = abs(pawn.HmdPitch) <= cvf("rs_body_yaw_maxpitch", 55.0);
+		if (w <= 0.0 && !headOk) return;
+
+		double target = pawn.HmdYaw;
+		if (w > 0.0) target = headOk ? normalizeDeg(pawn.HmdYaw + normalizeDeg(handsYaw - pawn.HmdYaw) * w) : handsYaw;
+		double d = normalizeDeg(target - mBodyYaw);
 
 		// Inside the neck's range the body does not move at all. This is what
-		// makes a head shake cost nothing.
+		// makes a head shake cost nothing. The hands narrow it.
 		double dead = cvf("rs_body_yaw_deadzone", 65.0);
+		dead += (cvf("rs_body_yaw_hands_deadzone", 10.0) - dead) * w;
 		if (abs(d) <= dead) return;
 
 		// Past it, follow only the EXCESS and only partway per tic, so the body
 		// eases round instead of snapping.
 		double excess = (d > 0) ? (d - dead) : (d + dead);
-		mBodyYaw = normalizeDeg(mBodyYaw + excess * cvf("rs_body_yaw_follow", 0.06));
+		double follow = cvf("rs_body_yaw_follow", 0.06);
+		follow += (cvf("rs_body_yaw_hands_follow", 0.25) - follow) * w;
+		double step = excess * follow;
+		double cap = cvf("rs_body_yaw_hands_maxstep", 0.0);
+		if (w > 0.0 && cap > 0.0) step = clamp(step, -cap, cap);
+		mBodyYaw = normalizeDeg(mBodyYaw + step);
+	}
+
+	// How much the two hands steer the body (0..1) and where they point. A hand
+	// counts once it is out from the headset horizontally, in the front half of
+	// the body and not hanging low; the two together count as much as the weaker
+	// one, so one hand out and one down leaves the head in charge.
+	private double handsHeading(PlayerPawn pawn, out double heading)
+	{
+		heading = 0.0;
+		double scale = cvf("rs_body_yaw_hands", 1.0);
+		if (scale <= 0.0) return 0.0;
+		double hmin  = cvf("rs_body_yaw_hands_min", 6.0);
+		double hspan = max(0.001, cvf("rs_body_yaw_hands_span", 6.0));
+		double fwd0  = cvf("rs_body_yaw_hands_fwd", 0.0);
+		double fspan = max(0.001, cvf("rs_body_yaw_hands_fwd_span", 0.5));
+		double low   = cvf("rs_body_yaw_hands_low", 30.0);
+
+		double sx = 0.0;
+		double sy = 0.0;
+		double w  = 1.0;
+		for (int h = 0; h < 2; ++h)
+		{
+			Vector3 at = (h == 0) ? pawn.AttackPos : pawn.OffhandPos;
+			if (at == (0, 0, 0)) return 0.0;
+			Vector3 rel = at - pawn.HmdPos;
+			double dist = rel.XY.Length();
+			if (dist < 0.001 || rel.Z < -low) return 0.0;
+			double hy = atan2(rel.Y, rel.X);
+			double wh = clamp((dist - hmin) / hspan, 0.0, 1.0)
+			          * clamp((cos(hy - mBodyYaw) - fwd0) / fspan, 0.0, 1.0);
+			w = min(w, wh);
+			sx += cos(hy) * wh;
+			sy += sin(hy) * wh;
+		}
+		if (w <= 0.0) return 0.0;
+		heading = atan2(sy, sx);
+		return w * scale;
 	}
 
 	// A world position expressed as a SEAT -- the exact inverse of what
@@ -661,6 +728,20 @@ class RS_VRBodyRig : EventHandler
 		// renaming one silently switches them to a style that no longer exists
 		// -- which reads as the part vanishing for no reason.
 		reg("boot",     "swapper","RS_PartBootHeavy");
+		// THE ARMS. armStyle picks the look: the base style from the menu, with
+		// "green"/"blue" appended when the gauntlet wears your armour.
+		reg("armright", "slayer",        "RS_PartArmSlayerR");
+		reg("armright", "slayergreen",   "RS_PartArmSlayerRGreen");
+		reg("armright", "slayerblue",    "RS_PartArmSlayerRBlue");
+		reg("armright", "forearm",       "RS_PartForearmSlayerR");
+		reg("armright", "forearmgreen",  "RS_PartForearmSlayerRGreen");
+		reg("armright", "forearmblue",   "RS_PartForearmSlayerRBlue");
+		reg("armleft",  "slayer",        "RS_PartArmSlayerL");
+		reg("armleft",  "slayergreen",   "RS_PartArmSlayerLGreen");
+		reg("armleft",  "slayerblue",    "RS_PartArmSlayerLBlue");
+		reg("armleft",  "forearm",       "RS_PartForearmSlayerL");
+		reg("armleft",  "forearmgreen",  "RS_PartForearmSlayerLGreen");
+		reg("armleft",  "forearmblue",   "RS_PartForearmSlayerLBlue");
 	}
 
 	private void ensure()
@@ -779,6 +860,7 @@ class RS_VRBodyRig : EventHandler
 			a.PlacementPrefix = holsterPrefix(s);
 
 		int frame = slotFrame(s);
+		if (frame == RFRAME_ARM) { placeArm(pawn, a, s); return; }
 		if (frame != RFRAME_BODY)
 		{
 			// The engine places a follow-hand model from GetWeaponTransform at
@@ -889,6 +971,154 @@ class RS_VRBodyRig : EventHandler
 			warnedDefer = true;
 		}
 		return true;
+	}
+
+	// ---- the arms ----------------------------------------------------------
+	//
+	// THE SLAYER'S ARMS, bent by the engine onto whichever hand is actually on
+	// each controller. Everything the arm DOES happens in the renderer at draw
+	// rate (actor.zs SetModelReachChain): the rig only says which joints, which
+	// hand, and where on that hand. Render only and never saved, so nothing here
+	// touches the game -- see Engine docs/IK_STAGE1_IMPL_NOTES.md.
+	//
+	// LINT-REACH: rs_arm_rt rs_arm_lf
+	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_quake
+
+	// The look for an arm slot: the menu's base style, wearing the armour tint
+	// the torso would -- 100-149 green, 150+ blue (armourBand).
+	private string armStyle(PlayerPawn pawn, int s)
+	{
+		string look = (s == RSLOT_ARM_R) ? cvs("rs_body_style_armright", "slayer")
+		                                 : cvs("rs_body_style_armleft",  "slayer");
+		if (look == "" || look ~== "none") return "none";
+		if (!cvb("rs_body_arm_armor_color", true)) return look;
+		int band = armourBand(pawn);
+		if (band == 2) return look .. "blue";
+		if (band == 1) return look .. "green";
+		return look;
+	}
+
+	// The hand this arm reaches, and which socket that hand's mesh has (0 the
+	// rigged hand_left.iqm, 1 the Quake hand). The right arm takes the main hand
+	// unless rs_body_arm_swap says the engine's IQM load mirror put it on the other
+	// side (plan 3e) -- which is confirmed on screen, not assumed.
+	private Actor armTarget(int s, out int sock)
+	{
+		sock = 0;
+		bool main = (s == RSLOT_ARM_R);
+		if (cvb("rs_body_arm_swap", false)) main = !main;
+		int hand = main ? 0 : 1;
+		int slot = main ? RSLOT_HAND_MAIN : RSLOT_HAND_OFF;
+
+		Actor hd;
+		string style;
+		if (handSlotIsForeign(slot))
+		{
+			// RS_WorldHands' hand, found by name so nothing here needs that mod.
+			hd = dressedOn[hand];
+			if (!hd) hd = Actor(ThinkerIterator.Create(main ? "RS_HandWorldMain" : "RS_HandWorldOff").Next());
+			style = cvs(main ? "rs_body_style_handmain" : "rs_body_style_handoff", "rs");
+		}
+		else
+		{
+			hd = parts[slot];
+			style = cvs(main ? "rs_body_style_handmain" : "rs_body_style_handoff", "quake");
+		}
+		// The Quake fist and the open hand share one cuff; everything else wears
+		// the rigged hand's mesh (dressWorldHands).
+		if (style ~== "quake" || style ~== "open") sock = 1;
+		return hd;
+	}
+
+	// The arm hangs in the BODY frame (FollowBodyMode 2, the holsters' heading),
+	// with its shoulders measured from the torso's own seat -- not ridden on the
+	// torso actor, whose mesh changes under it: the armour vest swaps in with its
+	// own model space and its own fit yaw, and a shoulder riding that would jump
+	// on every pickup. The arm's PlacementCVars fit moves it live on top.
+	//
+	// The chain is re-asserted every tic: idempotent, and it survives a load.
+	private void placeArm(PlayerPawn pawn, Actor a, int s)
+	{
+		bool right = (s == RSLOT_ARM_R);
+		double side = cvf("rs_body_arm_seat_side", 6.75);
+		double f  = sFwd[RSLOT_TORSO]  + cvf("rs_body_arm_seat_fwd", 1.0);
+		double sd = sSide[RSLOT_TORSO] + (right ? side : -side);
+		double u  = sUp[RSLOT_TORSO]   + cvf("rs_body_arm_seat_up", 13.65);
+
+		double by = mBodyYaw;
+		double fx = cos(by), fy = sin(by);
+		double rx = sin(by), ry = -cos(by);
+		a.SetOrigin((pawn.HmdPos.X + f * fx + sd * rx,
+		             pawn.HmdPos.Y + f * fy + sd * ry,
+		             pawn.HmdPos.Z + u), true);
+		a.FollowBodyOfs  = (f, sd, u);
+		a.FollowBodyYaw  = by;
+		a.FollowBodyMode = 2;
+		a.angle = by;
+		a.pitch = 0;
+		a.roll  = 0;
+		a.Scale = (1.0, 1.0);   // the size is the fit's _scale, never a second writer
+
+		// The rig's joints and directions in the arm's MODEL space (the IQM file's
+		// (x, z, y)): the arm's own side outward, file down and file back, and the
+		// twist reference -- the Slayer's index-minus-pinky off the forearm.
+		Name up, mid, wrist, tuning;
+		Vector3 outward, twistRef;
+		if (right)
+		{
+			up = 'arm_upper_rt'; mid = 'arm_lower_rt'; wrist = 'arm_hand_rt'; tuning = 'rs_arm_rt';
+			outward = (-1, 0, 0);
+			twistRef = (0.4117, 0.4096, -0.8141);
+		}
+		else
+		{
+			up = 'arm_upper_lf'; mid = 'arm_lower_lf'; wrist = 'arm_hand_lf'; tuning = 'rs_arm_lf';
+			outward = (1, 0, 0);
+			twistRef = (-0.4117, 0.4096, -0.8141);
+		}
+		a.SetModelReachChain(0, up, mid, wrist, tuning);
+		a.SetModelReachFrame(0, outward, (0, -1, 0), (0, 0, 1), twistRef);
+		a.SetModelReachFollowJoint(0, 'None');
+
+		int sock;
+		Actor hd = armTarget(s, sock);
+		if (!hd) { a.ClearModelReachChain(0); return; }
+
+		// THE WRIST SOCKETS, in each hand's model space and units (plan 3c/3g):
+		// the rigged hand's forearm stub, 2.604 map units behind its palm; the Quake
+		// hands' shared 15-vertex cuff. Their sliders add live on top.
+		if (sock == 1)
+			a.SetModelReachTarget(0, hd, (-6.90, 1.43, -1.10), (1, 0, 0), (0, 0, 0), 'rs_arm_sock_quake');
+		else
+			a.SetModelReachTarget(0, hd, (0, 7.659, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_rs');
+	}
+
+	// ARM SIZE FROM YOUR OWN REACH (plan 4b idea 2). Arms straight out to the
+	// sides: the span between the hands, less the shoulders the body draws, halved,
+	// is one arm from shoulder to palm. The Slayer's is 20.147 at size 1 (bones
+	// 8.849 + 8.694, wrist to palm 2.604). Both arm sizes, clamped 0.7..1.5.
+	// Shoulder height is reported, never changed -- the torso is yours.
+	private void calibrateArms(PlayerPawn pawn)
+	{
+		Vector3 m = pawn.AttackPos;
+		Vector3 o = pawn.OffhandPos;
+		if (m == (0, 0, 0) || o == (0, 0, 0))
+		{
+			Console.Printf("\c[Red]RS_VRBody: no hand positions to measure -- hold both controllers out and try again");
+			return;
+		}
+		double span  = (m - o).Length();
+		double reach = (span - 2.0 * cvf("rs_body_arm_seat_side", 6.75)) * 0.5;
+		double size  = clamp(reach / 20.147, 0.7, 1.5);
+		setf("rs_bp_armright_scale", size);
+		setf("rs_bp_armleft_scale",  size);
+
+		double shoulderZ = pawn.HmdPos.Z + sUp[RSLOT_TORSO] + cvf("rs_body_arm_seat_up", 13.65);
+		double handsZ    = (m.Z + o.Z) * 0.5;
+		Console.Printf("\c[Gold]RS_VRBody: hands %.1f apart, so each arm is %.1f shoulder to palm -- arm size %.2f",
+			span, reach, size);
+		Console.Printf("\c[Gold]  Your hands are %.1f %s the shoulders the body draws.",
+			abs(handsZ - shoulderZ), (handsZ >= shoulderZ) ? "above" : "below");
 	}
 
 	// ---- the torso: what it is wearing -----------------------------------
@@ -1201,11 +1431,22 @@ class RS_VRBodyRig : EventHandler
 		string kind  = slotKind(s);
 		// THE TORSO IS DECIDED, not read: the menu's colour is only its base,
 		// and armour and health override it every tic. See torsoStyle.
-		string style = (s == RSLOT_TORSO) ? torsoStyle(pawn) : cvs("rs_body_style_" .. kind, "");
+		string style;
+		if (s == RSLOT_TORSO)                  style = torsoStyle(pawn);
+		else if (slotFrame(s) == RFRAME_ARM)   style = armStyle(pawn, s);
+		else                                   style = cvs("rs_body_style_" .. kind, "");
 		string want  = lookup(kind, style);
 
 		if (!cvb("rs_body_enabled", true)) want = "";
 		if (handSlotIsForeign(s))          want = "";
+		// AN ARM NEEDS A TORSO TO HANG FROM AND A HAND ACTOR TO REACH. Psprite
+		// hands have no model the engine can put a wrist on, so with none there is
+		// no arm at all rather than one bent at nothing (plan 3a).
+		if (slotFrame(s) == RFRAME_ARM)
+		{
+			int sock;
+			if (!parts[RSLOT_TORSO] || !armTarget(s, sock)) want = "";
+		}
 		if (want == partClass[s] && (parts[s] || want == "")) return;
 
 		if (parts[s]) { parts[s].Destroy(); parts[s] = null; }
@@ -1374,6 +1615,7 @@ class RS_VRBodyRig : EventHandler
 			return;
 		}
 
+		if (e.Name ~== "rs_body_arm_calibrate") { calibrateArms(pawn); return; }
 		if (e.Name ~== "rs_body_save")  { saveProfile("vrbody"); return; }
 		if (e.Name ~== "rs_body_load")  { loadProfile("vrbody"); return; }
 		if (e.Name ~== "rs_body_reset")

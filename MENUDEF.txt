@@ -88,6 +88,23 @@ OptionString "RS_BodyBootStyles"
 	"heavy",   "Heavy boot"
 }
 
+OptionString "RS_BodyArmStyles"
+{
+	"none",    "None"
+	"slayer",  "Slayer arm"
+	"forearm", "Slayer forearm only"
+}
+
+// Quarter turns for an arm's fit Yaw. The facing is found on screen: pick the one
+// where the elbows bend down and back, then trim on the Yaw slider.
+OptionValue "RS_BodyArmFacing"
+{
+	0,    "As exported"
+	90,   "Quarter turn one way"
+	180,  "Half turn"
+	-90,  "Quarter turn the other way"
+}
+
 OptionValue "RS_BodyStoredSize"
 {
 	0, "No scaling - as held"
@@ -160,6 +177,9 @@ OptionMenu "RS_VRBodyMain"
 	Option    "Hand - main",       "rs_body_style_handmain", "RS_BodyHandStyles"
 	Option    "Hand - off",        "rs_body_style_handoff",  "RS_BodyHandStyles"
 	Option    "Boots",             "rs_body_style_boot",     "RS_BodyBootStyles"
+	Option    "Arm - right",       "rs_body_style_armright", "RS_BodyArmStyles"
+	Option    "Arm - left",        "rs_body_style_armleft",  "RS_BodyArmStyles"
+	Submenu   "Arms -- fit, reach, calibrate (LIVE)", "RS_VRBodyArms"
 	Submenu   "Holsters -- store and draw", "RS_VRBodyHolsters"
 	StaticText ""
 	Option    "Let RS_WorldHands own the hands", "rs_body_defer_hands", "OnOff"
@@ -182,6 +202,15 @@ OptionMenu "RS_VRBodyMain"
 	Slider    "Neck deadzone",      "rs_body_yaw_deadzone", 0, 90, 5, 0
 	Slider    "Catch-up rate",      "rs_body_yaw_follow",   0.02, 1.0, 0.01, 2
 	Slider    "Stop tracking past", "rs_body_yaw_maxpitch", 20, 89, 1, 0
+	StaticText ""
+	StaticText "Both hands out in front turn the body toward them.", 1
+	Slider    "Follow your hands",         "rs_body_yaw_hands",          0.0, 1.0, 0.05, 2
+	Slider    "  Hands deadzone",          "rs_body_yaw_hands_deadzone", 0, 45, 1, 0
+	Slider    "  Hands catch-up rate",     "rs_body_yaw_hands_follow",   0.02, 1.0, 0.01, 2
+	Slider    "  Max turn per tic (0 off)","rs_body_yaw_hands_maxstep",  0, 20, 0.5, 1
+	StaticText "0 = the head alone decides, as before. With a hand down", "DarkGray"
+	StaticText "the head decides. Holsters follow the body, so they", "DarkGray"
+	StaticText "follow your aim too.", "DarkGray"
 	StaticText ""
 	Submenu   "Fit a mesh to its slot -- LIVE", "RS_VRBodyFits"
 	Submenu   "Fit the body to you",            "RS_VRBodySeats"
@@ -591,5 +620,99 @@ OptionMenu "RS_VRBodyHol8"
 	Slider    "  Height",     "rs_bp_hol8_scale_z", 0.05, 4.0, 0.05, 2
 	StaticText ""
 	SafeCommand "Reset this holster", "resetcvar rs_bp_hol8_ofs_x rs_bp_hol8_ofs_y rs_bp_hol8_ofs_z rs_bp_hol8_yaw rs_bp_hol8_pitch rs_bp_hol8_roll rs_bp_hol8_scale rs_bp_hol8_scale_x rs_bp_hol8_scale_y rs_bp_hol8_scale_z"
+}
+
+// THE ARMS. Every SLIDER on this page is read by the renderer -- the arm fit
+// (PlacementCVars), the wrist sockets (the reach target's point cvars) and the
+// bending (the reach chain's tuning prefix) -- so each moves the arm while you drag
+// it. The options at the top are read by script and apply when the menu closes.
+// LINT-LIVE: RS_VRBodyArms
+OptionMenu "RS_VRBodyArms"
+{
+	Title "Body - arms"
+	StaticText "The Slayer's arms between your torso and your hands.", 1
+	StaticText "Your hand leads; the arm bends to reach it.", 1
+	StaticText ""
+	Option    "Right arm",                     "rs_body_style_armright",  "RS_BodyArmStyles"
+	Option    "Left arm",                      "rs_body_style_armleft",   "RS_BodyArmStyles"
+	Option    "Armour changes the gauntlets",  "rs_body_arm_armor_color", "YesNo"
+	Option    "Arms reaching the wrong hands", "rs_body_arm_swap",        "OnOff"
+	StaticText "Turn that on if an arm crosses your body. These apply", "DarkGray"
+	StaticText "when the menu closes.", "DarkGray"
+	StaticText ""
+	Command   "Calibrate arm size -- arms straight out to the sides", "netevent rs_body_arm_calibrate"
+	StaticText "Hold both arms straight out, then choose it (bind it in", "DarkGray"
+	StaticText "Controls to do it without the menu). Sets both arm sizes.", "DarkGray"
+	Submenu   "Where the shoulders sit", "RS_VRBodyArmSeat"
+	StaticText ""
+	StaticText "Right arm fit", 1
+	Option    "Facing",       "rs_bp_armright_yaw",   "RS_BodyArmFacing"
+	Slider    "X",            "rs_bp_armright_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",            "rs_bp_armright_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",            "rs_bp_armright_ofs_z", -32.0, 32.0, 0.1, 1
+	Slider    "Yaw",          "rs_bp_armright_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch",        "rs_bp_armright_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",         "rs_bp_armright_roll",  -180.0, 180.0, 1, 0
+	Slider    "ARM SIZE",     "rs_bp_armright_scale", 0.5, 2.0, 0.01, 2
+	StaticText ""
+	StaticText "Left arm fit", 1
+	Option    "Facing",       "rs_bp_armleft_yaw",    "RS_BodyArmFacing"
+	Slider    "X",            "rs_bp_armleft_ofs_x",  -32.0, 32.0, 0.1, 1
+	Slider    "Y",            "rs_bp_armleft_ofs_y",  -32.0, 32.0, 0.1, 1
+	Slider    "Z",            "rs_bp_armleft_ofs_z",  -32.0, 32.0, 0.1, 1
+	Slider    "Yaw",          "rs_bp_armleft_yaw",    -180.0, 180.0, 1, 0
+	Slider    "Pitch",        "rs_bp_armleft_pitch",  -180.0, 180.0, 1, 0
+	Slider    "Roll",         "rs_bp_armleft_roll",   -180.0, 180.0, 1, 0
+	Slider    "ARM SIZE",     "rs_bp_armleft_scale",  0.5, 2.0, 0.01, 2
+	StaticText ""
+	StaticText "Where the arm meets the hand", 1
+	Slider    "Rigged hand X",  "rs_arm_sock_rs_ofs_x",    -8.0, 8.0, 0.05, 2
+	Slider    "Rigged hand Y",  "rs_arm_sock_rs_ofs_y",    -8.0, 8.0, 0.05, 2
+	Slider    "Rigged hand Z",  "rs_arm_sock_rs_ofs_z",    -8.0, 8.0, 0.05, 2
+	Slider    "Quake hand X",   "rs_arm_sock_quake_ofs_x", -8.0, 8.0, 0.05, 2
+	Slider    "Quake hand Y",   "rs_arm_sock_quake_ofs_y", -8.0, 8.0, 0.05, 2
+	Slider    "Quake hand Z",   "rs_arm_sock_quake_ofs_z", -8.0, 8.0, 0.05, 2
+	StaticText "In the hand's own units and axes: slide the wrist in", "DarkGray"
+	StaticText "or out of the gauntlet.", "DarkGray"
+	StaticText ""
+	StaticText "Right arm bending", 1
+	Slider    "Elbow out (negative flips it)", "rs_arm_rt_pole_out",    -1.0, 1.0, 0.05, 2
+	Slider    "Elbow down",                    "rs_arm_rt_pole_down",    0.0, 2.0, 0.05, 2
+	Slider    "Elbow back",                    "rs_arm_rt_pole_back",   -1.0, 1.0, 0.05, 2
+	Slider    "Stretch allowed",               "rs_arm_rt_stretch_max",  1.0, 2.0, 0.05, 2
+	Slider    "Forearm follows hand",          "rs_arm_rt_align",        0.0, 1.0, 0.05, 2
+	Slider    "  Most it swings (degrees)",    "rs_arm_rt_align_max",    0, 90, 1, 0
+	Slider    "Forearm twist",                 "rs_arm_rt_twist",        0.0, 1.0, 0.05, 2
+	Slider    "  Twist offset",                "rs_arm_rt_twist_ofs",   -180, 180, 1, 0
+	Slider    "Smooth elbow (0 off)",          "rs_arm_rt_swivel_rate",  0, 60, 1, 0
+	Slider    "Smooth twist (0 off)",          "rs_arm_rt_twist_rate",   0, 60, 1, 0
+	StaticText ""
+	StaticText "Left arm bending", 1
+	Slider    "Elbow out (negative flips it)", "rs_arm_lf_pole_out",    -1.0, 1.0, 0.05, 2
+	Slider    "Elbow down",                    "rs_arm_lf_pole_down",    0.0, 2.0, 0.05, 2
+	Slider    "Elbow back",                    "rs_arm_lf_pole_back",   -1.0, 1.0, 0.05, 2
+	Slider    "Stretch allowed",               "rs_arm_lf_stretch_max",  1.0, 2.0, 0.05, 2
+	Slider    "Forearm follows hand",          "rs_arm_lf_align",        0.0, 1.0, 0.05, 2
+	Slider    "  Most it swings (degrees)",    "rs_arm_lf_align_max",    0, 90, 1, 0
+	Slider    "Forearm twist",                 "rs_arm_lf_twist",        0.0, 1.0, 0.05, 2
+	Slider    "  Twist offset",                "rs_arm_lf_twist_ofs",   -180, 180, 1, 0
+	Slider    "Smooth elbow (0 off)",          "rs_arm_lf_swivel_rate",  0, 60, 1, 0
+	Slider    "Smooth twist (0 off)",          "rs_arm_lf_twist_rate",   0, 60, 1, 0
+	StaticText "If twist or elbow look busy, try smoothing at 30.", "DarkGray"
+}
+
+// Read by script, so these apply when the menu closes. The arm fit sliders on the
+// arms page move the arm live.
+OptionMenu "RS_VRBodyArmSeat"
+{
+	Title "Body - shoulders"
+	StaticText "Where the shoulders sit, measured from the torso's", 1
+	StaticText "own seat. These apply when you close the menu.", 1
+	StaticText ""
+	Slider    "Forward / back",   "rs_body_arm_seat_fwd",  -16.0, 16.0, 0.1, 1
+	Slider    "Out to the sides", "rs_body_arm_seat_side",   0.0, 16.0, 0.1, 1
+	Slider    "Up / down",        "rs_body_arm_seat_up",   -10.0, 30.0, 0.1, 1
+	StaticText ""
+	SafeCommand "Reset the shoulders", "resetcvar rs_body_arm_seat_fwd rs_body_arm_seat_side rs_body_arm_seat_up"
 }
 
