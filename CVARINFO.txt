@@ -158,12 +158,10 @@ user float rs_bp_boot_scale_z = 1.0;
 user int rs_body_hand_pose_grip = 2;
 user int rs_body_hand_pose_open = 5;
 
-// How close a hand has to be to pick a part up, in map units.
-// Placement mode moves the AMMO POUCH by default and nothing else: holsters and
-// body slots are placed and symmetrical, and a stray grab in there used to shift
-// one and break that quietly. Turn this on to pick body parts up again.
-user bool rs_body_place_parts = false;
-
+// How close a hand has to be to pick a holster up in placement mode, in map
+// units, measured to where the holster is drawn. (rs_body_place_parts, which
+// limited placement mode to RS_VR_PistolTest's ammo pouch, is gone: holsters are
+// what placement mode is for, and its "off" said so only in the console.)
 user float rs_body_grab_radius = 12.0;
 
 // -------------------------------------------------------------- body yaw ---

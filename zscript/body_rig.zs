@@ -158,6 +158,17 @@ class RS_VRBodyRig : EventHandler
 	private bool editMode;
 	private int  grabbedMain;   // slot being dragged by the main hand, -1 none
 	private int  grabbedOff;
+	// Where on the holster each hand gripped it, so it is carried by that point
+	// and does not jump its centre onto the hand.
+	private Vector3 grabOfsMain;
+	private Vector3 grabOfsOff;
+	// Last tic's grips: placement mode picks up and drops on a squeeze, not a hold.
+	private bool prevGripMain;
+	private bool prevGripOff;
+	// The holster slider test (startHolsterTest): tics until it reports.
+	private int     holTestTics;
+	private Vector3 holTestFrom;
+	private double  holTestBase;
 
 	// ---- the registry ----------------------------------------------------
 	// style name -> class, per slot kind. ADDING A VARIANT IS ONE LINE HERE
@@ -389,7 +400,10 @@ class RS_VRBodyRig : EventHandler
 			// which is worse than not being able to grab them at all.
 			if (s < RSLOT_HOLSTER_0 || s > RSLOT_HOLSTER_8) continue;
 			if (!parts[s]) continue;
-			Vector3 d = parts[s].Pos - handPos;
+			if (s == grabbedMain || s == grabbedOff) continue;   // the other hand has it
+			// WHERE IT IS DRAWN, not its seat: a holster moved on its own page is
+			// grabbed where you see it.
+			Vector3 d = SlotWorld(pawn, s) - handPos;
 			double dd = d dot d;
 			if (dd < bestD) { bestD = dd; best = s; }
 		}
@@ -401,34 +415,31 @@ class RS_VRBodyRig : EventHandler
 		int held = mainHand ? grabbedMain : grabbedOff;
 		if (held >= 0)
 		{
-			Console.Printf("\c[Gold]RS_VRBody: dropped %s at fwd %.1f side %.1f up %.1f",
-				slotName(held), sFwd[held], sSide[held], sUp[held]);
 			if (mainHand) grabbedMain = -1; else grabbedOff = -1;
 			level.VRHaptic(mainHand ? 0 : 1, 0.6, 15.0);
+			// DROPPED IS KEPT. A drop that also needed "Save the body" pressed
+			// came back in the old place next launch.
+			saveProfile("vrbody");
+			showMsg(String.Format("Dropped %s -- saved", slotName(held)));
 			return;
 		}
 
-		// THE BODY'S OWN PARTS ARE OFF BY DEFAULT. Holsters and slots are placed
-		// and symmetrical; the thing that actually wants moving by hand is the
-		// ammo pouch, which RS_VR_PistolTest drags from these same two keys. A
-		// stray grab here used to shift a holster and quietly break that
-		// symmetry, so picking a body part up is now something you ask for.
-		if (!cvb("rs_body_place_parts", false))
-		{
-			Console.Printf("RS_VRBody: placement mode moves the ammo pouch. To move body parts too, turn on VR Body > Placement > Let placement mode move body parts.");
-			return;
-		}
-
+		// HOLSTERS ARE WHAT PLACEMENT MODE MOVES. It used to move only
+		// RS_VR_PistolTest's ammo pouch unless a switch on the seats page was on,
+		// and said so in the console alone -- which in a headset is a grab that
+		// silently does nothing. That package is retired; the switch is gone.
 		Vector3 at = mainHand ? pawn.AttackPos : pawn.OffhandPos;
 		int s = nearestSlot(pawn, at, cvf("rs_body_grab_radius", 12.0));
 		if (s < 0)
 		{
-			Console.Printf("RS_VRBody: nothing within reach of that hand");
+			showMsg("No holster within reach of that hand");
 			return;
 		}
-		if (mainHand) grabbedMain = s; else grabbedOff = s;
-		Console.Printf("\c[Gold]RS_VRBody: holding %s", slotName(s));
+		Vector3 ofs = at - SlotWorld(pawn, s);
+		if (mainHand) { grabbedMain = s; grabOfsMain = ofs; }
+		else          { grabbedOff  = s; grabOfsOff  = ofs; }
 		level.VRHaptic(mainHand ? 0 : 1, 0.4, 10.0);
+		showMsg(String.Format("Holding %s -- grip again to drop", slotName(s)));
 	}
 
 	// POSITION ONLY. Orientation stays whatever the slot was given -- capturing
@@ -437,17 +448,74 @@ class RS_VRBodyRig : EventHandler
 	// the same way.
 	private void updateGrabs(PlayerPawn pawn)
 	{
-		if (grabbedMain >= 0)
-		{
-			Vector3 v = worldToSeat(pawn, pawn.AttackPos, mBodyYaw);
-			sFwd[grabbedMain] = v.X; sSide[grabbedMain] = v.Y; sUp[grabbedMain] = v.Z;
-		}
-		if (grabbedOff >= 0)
-		{
-			Vector3 v = worldToSeat(pawn, pawn.OffhandPos, mBodyYaw);
-			sFwd[grabbedOff] = v.X; sSide[grabbedOff] = v.Y; sUp[grabbedOff] = v.Z;
-		}
+		if (grabbedMain >= 0) dragTo(pawn, grabbedMain, pawn.AttackPos  - grabOfsMain);
+		if (grabbedOff  >= 0) dragTo(pawn, grabbedOff,  pawn.OffhandPos - grabOfsOff);
 		if (grabbedMain >= 0 || grabbedOff >= 0) lastEditSlot = -1;   // refresh the sliders
+	}
+
+	// Moves slot s's SEAT so the holster is DRAWN at `want`. Drawn is the seat plus
+	// that holster's own live fit (its page), so the fit's offset comes off first --
+	// or a holster moved on its page would ride beside the hand, not in it. Runs
+	// before this tic's placement, so drawnAt still describes the current seat.
+	private void dragTo(PlayerPawn pawn, int s, Vector3 want)
+	{
+		Vector3 fit = SlotWorld(pawn, s) - slotWorldAt(pawn, s);
+		Vector3 v = worldToSeat(pawn, want - fit, mBodyYaw);
+		sFwd[s] = v.X; sSide[s] = v.Y; sUp[s] = v.Z;
+	}
+
+	// PLACEMENT MODE'S GRAB IS THE CONTROLLER GRIP: squeeze on a holster to pick it
+	// up, squeeze again to drop it. It used to be two extra bindable keys only,
+	// which nobody reaches for with a controller in each hand. Those still work.
+	private void pollGripGrabs(PlayerPawn pawn)
+	{
+		bool gm = pawn.GripHeldMain;
+		bool go = pawn.GripHeldOff;
+		if (gm && !prevGripMain) toggleGrab(pawn, true);
+		if (go && !prevGripOff)  toggleGrab(pawn, false);
+		prevGripMain = gm;
+		prevGripOff  = go;
+	}
+
+	// Said where you can see it: the console is not in the headset.
+	private static void showMsg(string msg)
+	{
+		Console.Printf("\c[Gold]RS_VRBody: %s", msg);
+		Console.MidPrint(SmallFont, msg);
+	}
+
+	// ---- the holster slider test -----------------------------------------
+	//
+	// "A holster's page moves nothing" has three causes that look the same in a
+	// headset: the value never reaches the player's userinfo copy the renderer
+	// reads, the renderer's matrix does not use it, or the holster you see is not
+	// the actor it is set on. This moves holster 0 up 2 through its own slider
+	// cvar, then a few tics later says which -- and puts it back.
+	private void startHolsterTest()
+	{
+		let raw = CVar.FindCVar("rs_bp_hol0_ofs_z");
+		if (!raw) { showMsg("TEST: rs_bp_hol0_ofs_z does not exist"); return; }
+		holTestBase = raw.GetFloat();
+		holTestFrom = drawnValid[RSLOT_HOLSTER_0] ? drawnAt[RSLOT_HOLSTER_0] : (0, 0, 0);
+		raw.SetFloat(holTestBase + 2.0);
+		holTestTics = 8;
+		showMsg("TEST: moving holster 0 up 2...");
+	}
+
+	private void tickHolsterTest()
+	{
+		if (holTestTics <= 0 || --holTestTics > 0) return;
+		int s = RSLOT_HOLSTER_0;
+		let raw = CVar.FindCVar("rs_bp_hol0_ofs_z");
+		let usr = CVar.GetCVar("rs_bp_hol0_ofs_z", players[consoleplayer]);
+		double rawV = raw ? raw.GetFloat() : -999.0;
+		double usrV = usr ? usr.GetFloat() : -999.0;
+		double moved = drawnValid[s] ? (drawnAt[s] - holTestFrom).Length() : -1.0;
+		string prefix = "no actor";
+		if (parts[s]) prefix = parts[s].PlacementPrefix;
+		showMsg(String.Format("TEST holster 0: slider %.1f  renderer copy %.1f  drawn moved %.2f  prefix %s",
+			rawV, usrV, moved, prefix));
+		if (raw) raw.SetFloat(holTestBase);
 	}
 
 	// WHAT EACH POSE LOOKS LIKE, per hand mesh.
@@ -1591,13 +1659,19 @@ class RS_VRBodyRig : EventHandler
 		if (!pawn) return;
 		if (e.Name ~== "rs_body_edit")
 		{
+			bool wasHolding = grabbedMain >= 0 || grabbedOff >= 0;
 			editMode = !editMode;
 			grabbedMain = -1; grabbedOff = -1;
-			Console.Printf(editMode
-				? "\c[Gold]RS_VRBody: PLACEMENT MODE ON -- reach at a part and press grab to pick it up, again to drop it."
-				: "\c[Gold]RS_VRBody: placement mode off. Save the body to keep it.");
+			// A grip already held when it switches on must not also pick something up.
+			prevGripMain = pawn.GripHeldMain;
+			prevGripOff  = pawn.GripHeldOff;
+			if (!editMode && wasHolding) saveProfile("vrbody");
+			showMsg(editMode
+				? "PLACEMENT MODE ON -- grip a holster to pick it up, grip again to drop it"
+				: "Placement mode off");
 			return;
 		}
+		if (e.Name ~== "rs_body_holtest") { startHolsterTest(); return; }
 		if (e.Name ~== "rs_body_grab_main") { if (editMode) toggleGrab(pawn, true);  return; }
 		if (e.Name ~== "rs_body_grab_off")  { if (editMode) toggleGrab(pawn, false); return; }
 		// NUDGE A HAND FROM THE CONSOLE, with no menu anywhere in the path.
@@ -1689,7 +1763,11 @@ class RS_VRBodyRig : EventHandler
 		ensure();
 		pumpEdit();
 		updateBodyYaw(pawn);
-		if (editMode) updateGrabs(pawn);
+		if (editMode)
+		{
+			pollGripGrabs(pawn);
+			updateGrabs(pawn);
+		}
 		drawMarkers(pawn);
 
 		// BEFORE the slot loop, and outside it, because it has to run whether or
@@ -1723,6 +1801,7 @@ class RS_VRBodyRig : EventHandler
 			drawnAt[hs]    = pw;
 			drawnValid[hs] = true;
 		}
+		tickHolsterTest();
 
 
 		// Before the breath, which fades with it -- see applyLookFade.
