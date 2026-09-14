@@ -175,7 +175,10 @@ user float rs_body_yaw_maxpitch = 55.0;   // stop tracking past this look-down
 // off hand, green holsters, gold while held. If a dot is not on your drawn
 // hand, the reach test is measuring from the wrong place -- which fails
 // silently and looks exactly like the grab being broken.
-user bool rs_body_markers = false;
+// ON BY DEFAULT (owner, 2026-09-14). RENAMED from rs_body_markers (default off):
+// a saved ini outranks a default forever, so the new default needed a new name
+// to arrive.
+user bool rs_body_reach_markers = true;
 
 // Size of both Quake hands.
 user float rs_body_hand_scale = 1.0;

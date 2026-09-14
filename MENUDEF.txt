@@ -255,7 +255,7 @@ OptionMenu "RS_VRBodySeats"
 	Command   "Reload the body",   "netevent rs_body_load"
 	Command   "Print every slot",  "netevent rs_body_dump"
 	StaticText ""
-	Option    "Show reach markers", "rs_body_markers", "OnOff"
+	Option    "Show reach markers", "rs_body_reach_markers", "OnOff"
 }
 
 OptionMenu "RS_VRBodyFits"

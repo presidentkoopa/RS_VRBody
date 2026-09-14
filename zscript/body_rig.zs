@@ -1735,7 +1735,7 @@ class RS_VRBodyRig : EventHandler
 	// disagreement with the drawn hand is visible rather than inferred.
 	private void drawMarkers(PlayerPawn pawn)
 	{
-		if (!cvb("rs_body_markers", false)) return;
+		if (!cvb("rs_body_reach_markers", true)) return;
 
 		Vector3 mh = pawn.AttackPos  - pawn.Pos;
 		Vector3 oh = pawn.OffhandPos - pawn.Pos;
