@@ -1,5 +1,9 @@
 # Built by build.ps1 from the sources beside it; never committed.
 *.pk3
+# EXCEPT the HUD panels pk3, kept here and committed at the owner's call (2026-09-14).
+# Built by E:\DOOMWork\RS_VRPanels\build.ps1 -- quads, a sprite and script only, no
+# Doom Eternal assets. RS_VRBody.pk3 stays ignored: it carries the Slayer arms.
+!RS_VRPanels.pk3
 __pycache__/
 *.bak
 
