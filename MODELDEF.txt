@@ -197,6 +197,45 @@ Model RS_HandWearOpenOff
 	BaseFrame
 }
 
+// THE BARE RS HAND, for "RS bare hands". RS_WorldHands draws Ermac's glove by
+// default; this puts its old mesh back. hand_left_poses.iqm is hand_left.iqm's
+// mesh carrying the glove's skeleton and ALL its frames (Ermac's fitted poses at
+// 1298+ and 1494+), so every pose shows the same on either hand and no frame map
+// is sent. The files ship in RS_WorldHands (models/hands); this style only acts
+// when that package's hand is the one drawn. Scale, offsets and sliders are
+// RS_HandWorldMain / Off's own, so the hand sits where the glove does.
+Model RS_HandWearBareMain
+{
+	Path "models/hands"
+	Model 0 "hand_left_poses.iqm"
+	Skin 0 "hand_basecolor.png"
+	PlacementCVars rs_hw_main
+	Scale -1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_HandWearBareOff
+{
+	Path "models/hands"
+	Model 0 "hand_left_poses.iqm"
+	Skin 0 "hand_basecolor.png"
+	PlacementCVars rs_hw_off
+	Scale 1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
 // ============================================================== IQM  hands ==
 //
 // The rigged hands from RS_VR_Unified, as a second HAND STYLE. World actors on

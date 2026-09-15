@@ -538,7 +538,8 @@ class RS_VRBodyRig : EventHandler
 	// that closes slightly wrong looks like a hand.
 	private static int poseFrame(string style, int pose)
 	{
-		if (style ~== "rs" || style ~== "iqm")
+		// "rsbare" is the bare RS mesh on the glove's skeleton and frames: same table.
+		if (style ~== "rs" || style ~== "rsbare" || style ~== "iqm")
 		{
 			// hand_left.iqm, one 1298-frame clip. 0-10 are the baked shapes,
 			// 513 the animator's own fist, 1289+ the manipulation set. Frames
@@ -694,7 +695,10 @@ class RS_VRBodyRig : EventHandler
 
 			hd.A_ChangeModel(want);
 			let ps = ServiceIterator.Find("RS_HandPoseService").Next();
-			if (ps) ps.GetInt("pose.wear", (want == '') ? "" : wearFrames(style), hand, 0, null, 'RS_VRBody');
+			// A mesh on the hand's own skeleton and frames ("rsbare") is not "worn":
+			// no frame map, and its bones can be asked for.
+			bool ownFrames = (want == '') || (style ~== "rsbare");
+			if (ps) ps.GetInt("pose.wear", ownFrames ? "" : wearFrames(style), hand, 0, null, 'RS_VRBody');
 			dressedAs[hand] = want;
 			dressedOn[hand] = hd;
 		}
@@ -704,6 +708,7 @@ class RS_VRBodyRig : EventHandler
 	{
 		if (style ~== "quake") return (hand == 0) ? 'RS_HandWearQuakeMain' : 'RS_HandWearQuakeOff';
 		if (style ~== "open")  return (hand == 0) ? 'RS_HandWearOpenMain'  : 'RS_HandWearOpenOff';
+		if (style ~== "rsbare") return (hand == 0) ? 'RS_HandWearBareMain' : 'RS_HandWearBareOff';
 		return '';
 	}
 

@@ -13,3 +13,6 @@ __pycache__/
 # tracked and says where they came from.
 models/slayer/*.iqm
 models/slayer/*.png
+
+# Mockup renders: some show the Slayer arms (Doom Eternal assets). Disk only.
+renders/

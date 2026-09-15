@@ -130,6 +130,10 @@ class RS_HandWearQuakeMain : RS_HandWearBase {}
 class RS_HandWearQuakeOff  : RS_HandWearBase {}
 class RS_HandWearOpenMain  : RS_HandWearBase {}
 class RS_HandWearOpenOff   : RS_HandWearBase {}
+// The bare RS hand (hand_left_poses.iqm): the same skeleton and every frame of the
+// default Ermac glove, so it poses exactly like it and needs no frame map.
+class RS_HandWearBareMain  : RS_HandWearBase {}
+class RS_HandWearBareOff   : RS_HandWearBase {}
 
 // ----------------------------------------------------------------- boot ----
 //
