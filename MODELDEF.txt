@@ -225,18 +225,18 @@ Model RS_HandWearOpenOff
 	BaseFrame
 }
 
-// THE BARE RS HAND, for "RS bare hands". RS_WorldHands draws Ermac's glove by
-// default; this puts its old mesh back. hand_left_poses.iqm is hand_left.iqm's
-// mesh carrying the glove's skeleton and ALL its frames (Ermac's fitted poses at
-// 1298+ and 1494+), so every pose shows the same on either hand and no frame map
-// is sent. The files ship in RS_WorldHands (models/hands); this style only acts
-// when that package's hand is the one drawn. Scale, offsets and sliders are
-// RS_HandWorldMain / Off's own, so the hand sits where the glove does.
-Model RS_HandWearBareMain
+// THE ERMAC GLOVE, for the "glove" hand style. RS_WorldHands draws the RS hand by default
+// again (owner, 2026-09-15); this dresses its hand in Ermac's (iAmErmac, MIT) fingerless glove,
+// hand_ermac.iqm -- the same 22-joint skeleton and every frame, so it poses from the same frame
+// table and no frame map is sent. The files ship in RS_WorldHands (models/hands). Scale,
+// offsets and sliders are RS_HandWorldMain / Off's own, so it sits where the RS hand does.
+// Known faults in the headset: thicker fingers, creases off the rig's joints (see
+// RS_WorldHands MODELDEF).
+Model RS_HandWearGloveMain
 {
 	Path "models/hands"
-	Model 0 "hand_left_poses.iqm"
-	Skin 0 "hand_basecolor.png"
+	Model 0 "hand_ermac.iqm"
+	Skin 0 "hand_ermac.png"
 	PlacementCVars rs_hw_main
 	Scale -1.0 1.0 1.0
 	Offset 0.0 0.1 -0.05
@@ -248,11 +248,11 @@ Model RS_HandWearBareMain
 	BaseFrame
 }
 
-Model RS_HandWearBareOff
+Model RS_HandWearGloveOff
 {
 	Path "models/hands"
-	Model 0 "hand_left_poses.iqm"
-	Skin 0 "hand_basecolor.png"
+	Model 0 "hand_ermac.iqm"
+	Skin 0 "hand_ermac.png"
 	PlacementCVars rs_hw_off
 	Scale 1.0 1.0 1.0
 	Offset 0.0 0.1 -0.05

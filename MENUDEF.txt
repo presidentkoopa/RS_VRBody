@@ -77,8 +77,8 @@ OptionString "RS_BodyHolsterStyles"
 OptionString "RS_BodyHandStyles"
 {
 	"none",  "None"
-	"rs",    "Ermac glove (full poses)"
-	"rsbare", "RS bare hands (full poses)"
+	"rs",    "RS hands (full poses)"
+	"glove", "Ermac glove (full poses)"
 	"quake", "Quake fist (coarse)"
 	"open",  "Quake open hand (coarse)"
 }
