@@ -1130,7 +1130,7 @@ class RS_VRBodyRig : EventHandler
 	// hand, and where on that hand. Render only and never saved, so nothing here
 	// touches the game -- see Engine docs/IK_STAGE1_IMPL_NOTES.md.
 	//
-	// LINT-REACH: rs_arm_rt rs_arm_lf
+	// LINT-REACH: rs_armik_rt rs_armik_lf
 	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_marine
 
 	// The look for an arm slot: the menu's base style, wearing the armour tint
@@ -1260,19 +1260,19 @@ class RS_VRBodyRig : EventHandler
 			up    = right ? 'bip_upperArm_R' : 'bip_upperArm_L';
 			mid   = right ? 'bip_lowerArm_R' : 'bip_lowerArm_L';
 			wrist = right ? 'bip_hand_R'     : 'bip_hand_L';
-			tuning = right ? 'rs_arm_rt' : 'rs_arm_lf';
+			tuning = right ? 'rs_armik_rt' : 'rs_armik_lf';
 			outward  = right ? (-1, 0, 0) : (1, 0, 0);
 			twistRef = right ? (0.1929, 0.6177, -0.7624) : (-0.1929, 0.6177, -0.7624);
 		}
 		else if (right)
 		{
-			up = 'arm_upper_rt'; mid = 'arm_lower_rt'; wrist = 'arm_hand_rt'; tuning = 'rs_arm_rt';
+			up = 'arm_upper_rt'; mid = 'arm_lower_rt'; wrist = 'arm_hand_rt'; tuning = 'rs_armik_rt';
 			outward = (-1, 0, 0);
 			twistRef = (0.4117, 0.4096, -0.8141);
 		}
 		else
 		{
-			up = 'arm_upper_lf'; mid = 'arm_lower_lf'; wrist = 'arm_hand_lf'; tuning = 'rs_arm_lf';
+			up = 'arm_upper_lf'; mid = 'arm_lower_lf'; wrist = 'arm_hand_lf'; tuning = 'rs_armik_lf';
 			outward = (1, 0, 0);
 			twistRef = (-0.4117, 0.4096, -0.8141);
 		}

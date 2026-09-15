@@ -506,46 +506,57 @@ user float rs_bp_armleft_eyefade_near  = 4.0;
 user float rs_bp_armleft_eyefade_far   = 10.0;
 
 // HOW EACH ARM BENDS -- the reach chain's tuning, read by the RENDERER every frame
-// under the prefix the rig registers (rs_arm_rt / rs_arm_lf). Only the ones worth a
+// under the prefix the rig registers (rs_armik_rt / rs_armik_lf). Only the ones worth a
 // slider are declared; an undeclared suffix keeps the engine's default (actor.zs).
-user float rs_arm_rt_stretch_max = 1.25;
-user float rs_arm_rt_pole_out    = 1.0;
-user float rs_arm_rt_pole_down   = 0.6;
-user float rs_arm_rt_pole_back   = 0.35;
-user float rs_arm_rt_align       = 1.0;
-user float rs_arm_rt_align_max   = 40.0;
-user float rs_arm_rt_twist       = 1.0;
-user float rs_arm_rt_twist_ofs   = 0.0;
-user float rs_arm_rt_swivel_rate = 0.0;
-user float rs_arm_rt_twist_rate  = 0.0;
-user float rs_arm_lf_stretch_max = 1.25;
-user float rs_arm_lf_pole_out    = 1.0;
-user float rs_arm_lf_pole_down   = 0.6;
-user float rs_arm_lf_pole_back   = 0.35;
-user float rs_arm_lf_align       = 1.0;
-user float rs_arm_lf_align_max   = 40.0;
-user float rs_arm_lf_twist       = 1.0;
-user float rs_arm_lf_twist_ofs   = 0.0;
-user float rs_arm_lf_swivel_rate = 0.0;
-user float rs_arm_lf_twist_rate  = 0.0;
+//
+// RENAMED 2026-09-15 from rs_arm_rt_* / rs_arm_lf_* so these defaults reach a config that saved the old
+// ones (a saved ini outranks a default). The owner: "the arms kinda rotate like they are cylinders".
+// RECOMMENDED FROM THE DESK, not yet seen in the headset -- tune on the Arms page, which moves them live:
+//   align 0.6 (was 1.0)      the forearm still turns toward the hand, but only part way, so the elbow
+//                            stops swinging round after every wrist turn
+//   align_max 25 (was 40)    caps how far the elbow chases the hand
+//   twist 0.5 (was 1.0)      a real forearm takes about half of the hand's roll and the wrist the rest;
+//                            1.0 rolls the whole forearm rigidly with the hand -- the cylinder look
+//   swivel_rate 20, twist_rate 20 (were 0, instant)
+//                            quick wrist flicks ease in instead of spinning the arm at once
+user float rs_armik_rt_stretch_max = 1.25;
+user float rs_armik_rt_pole_out    = 1.0;
+user float rs_armik_rt_pole_down   = 0.6;
+user float rs_armik_rt_pole_back   = 0.35;
+user float rs_armik_rt_align       = 0.6;
+user float rs_armik_rt_align_max   = 25.0;
+user float rs_armik_rt_twist       = 0.5;
+user float rs_armik_rt_twist_ofs   = 0.0;
+user float rs_armik_rt_swivel_rate = 20.0;
+user float rs_armik_rt_twist_rate  = 20.0;
+user float rs_armik_lf_stretch_max = 1.25;
+user float rs_armik_lf_pole_out    = 1.0;
+user float rs_armik_lf_pole_down   = 0.6;
+user float rs_armik_lf_pole_back   = 0.35;
+user float rs_armik_lf_align       = 0.6;
+user float rs_armik_lf_align_max   = 25.0;
+user float rs_armik_lf_twist       = 0.5;
+user float rs_armik_lf_twist_ofs   = 0.0;
+user float rs_armik_lf_swivel_rate = 20.0;
+user float rs_armik_lf_twist_rate  = 20.0;
 
 // THE BENDING WRIST (plan 4b idea 1), rigged hand only: how much its forearm stub
 // turns along the forearm (0 = the old rigid hand) and the most it turns. Read by
 // the renderer.
-user float rs_arm_rt_aim     = 1.0;
-user float rs_arm_rt_aim_max = 70.0;
-user float rs_arm_lf_aim     = 1.0;
-user float rs_arm_lf_aim_max = 70.0;
+user float rs_armik_rt_aim     = 1.0;
+user float rs_armik_rt_aim_max = 70.0;
+user float rs_armik_lf_aim     = 1.0;
+user float rs_armik_lf_aim_max = 70.0;
 
 // THE ELBOW KEEPS OFF WALLS (plan 4b idea 6): the arm's thickness in its own model
 // units -- the spiked right gauntlet is wider -- and the most, in degrees, the elbow
 // swings away. 0 radius turns it off. Rate 0 is instant. Read by the renderer.
-user float rs_arm_rt_clear_radius = 3.5;
-user float rs_arm_rt_clear_max    = 100.0;
-user float rs_arm_rt_clear_rate   = 0.0;
-user float rs_arm_lf_clear_radius = 2.8;
-user float rs_arm_lf_clear_max    = 100.0;
-user float rs_arm_lf_clear_rate   = 0.0;
+user float rs_armik_rt_clear_radius = 3.5;
+user float rs_armik_rt_clear_max    = 100.0;
+user float rs_armik_rt_clear_rate   = 0.0;
+user float rs_armik_lf_clear_radius = 2.8;
+user float rs_armik_lf_clear_max    = 100.0;
+user float rs_armik_lf_clear_rate   = 0.0;
 
 // WHERE THE ARM MEETS THE HAND, per hand style, in that hand's model units and axes,
 // added live by the renderer to the measured wrist socket.

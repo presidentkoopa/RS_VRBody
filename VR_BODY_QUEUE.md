@@ -82,9 +82,32 @@ Close-up state, 2026-09-15 (owner: "we're done for today, so close up shop"). It
 The owner is undecided; nothing is built. It waits for the owner.
 
 ## 6. Flat-shading engine proposal (owner: "write the flat shading thing")
-- **State:** researched, not written.
-- **Design:** a per-model switch plumbed like SetEyeFade. The face normal comes from dFdx/dFdy of the pixel position, plus a studio key light, because sector light ignores normals.
-- **Rule:** propose only; the build lane builds.
+Full proposal: `Engine docs/FLAT_SHADING_PLAN.md`, sent to the owner 2026-09-15. Propose only; the build lane builds.
+
+- **What it changes.** A per-model switch, "faceted model shading", that is off unless a MODELDEF flag (`FacetShading`) or a live placement cvar turns it on. It has two parts:
+  1. **Face normals.** Every triangle is lit as one flat plane, using the screen-space derivative of the pixel's position, instead of the smooth per-vertex normal.
+  2. **A small key light.** It is a directional "studio" light term on the room light the model receives. Doom's sector light ignores normals, so flat faces alone would barely show.
+
+  The live tunables are `_facet`, `_keylight`, `_ambient`, `_keyyaw` and `_keypitch`, so menu sliders move it.
+- **Why.** The owner likes the Virtua Fighter 2 look of the Blender Workbench renders (crisp planes, one tone per face). In game the same models look round and evenly lit.
+- **How it fits.**
+  - It is not a new render effect, because an effect replaces the model's material shader and can't combine with the eye fade (verified in the Vulkan state code).
+  - It is a cheap per-draw check in main.fp, so it works under every material.
+  - The settings pack into two per-draw slots that are unused today (padding1/padding3; verified), so the per-draw record doesn't grow.
+  - Dynamic and effect lights pick up the face normal automatically.
+  - The MODELDEF/cvar half is renderer-independent, so the planned Vulkan rebuild swaps only the draw half.
+- **Cost.**
+  - GPU: one integer test per fragment on main.fp draws, plus two derivatives and a cross product on faceted models only.
+  - Shaders: no new permutations and no Vulkan pipeline keys; one SPIR-V rebuild.
+  - CPU: up to five cvar lookups per faceted model per draw, cacheable.
+  - Default off: every draw uploads exactly today's bytes.
+- **Owner's open questions:**
+  1. Key light locked to the world, the model, or the view?
+  2. HUD guns and hands: same flag, never, or a separate flag?
+  3. Normal-mapped models: face normal plus bumps, ignore the map, or smooth only?
+  4. Placement prefix only, or a native actor field too?
+  5. Key light on smooth models too?
+  6. Pack the free slots, or add a vec4?
 
 ## 7. Arm "cylinder" rotation
 - Bake the owner's `_align` / `_twist` slider values as defaults once reported.
