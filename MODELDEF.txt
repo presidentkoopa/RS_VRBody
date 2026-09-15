@@ -604,3 +604,62 @@ Model RS_PartForearmSlayerLBlue
 	PlacementCVars rs_bp_armleft
 	BaseFrame
 }
+
+// THE BREATH, laid over the arm (body_rig.zs syncArmBreath). Never worn: a copy
+// of whichever arm look is on, with the red gauntlet, placed by the same placeArm
+// so the engine bends it onto the same hand and it lies exactly on the arm. The
+// other surfaces keep the arm's own textures, so between the red and the arm
+// underneath only the gauntlet changes -- as the torso's red copy does.
+Model RS_PartArmSlayerRRed
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_red.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartArmSlayerLRed
+{
+	Path "models/slayer"
+	Model 0 "slayer_arm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_red.png"
+	SurfaceSkin 0 1 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 2 "doomslayer_torso_1006.png"
+	SurfaceSkin 0 3 "doomslayer_skin_1021.png"
+	SurfaceSkin 0 4 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerRRed
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1011_red.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.490 1.268 51.710
+	PlacementCVars rs_bp_armright
+	BaseFrame
+}
+
+Model RS_PartForearmSlayerLRed
+{
+	Path "models/slayer"
+	Model 0 "slayer_forearm_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arms_legs_1012_red.png"
+	SurfaceSkin 0 1 "doomslayer_skin_1021.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.490 1.268 51.710
+	PlacementCVars rs_bp_armleft
+	BaseFrame
+}

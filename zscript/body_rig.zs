@@ -1440,6 +1440,59 @@ class RS_VRBodyRig : EventHandler
 		breath.A_SetRenderStyle(breathAlpha * torsoVisible, STYLE_Translucent);
 	}
 
+	// ---- the breath on the arms ------------------------------------------
+	//
+	// The torso's breath, carried onto the Slayer arms: a copy of whichever arm
+	// look is worn (full arm or forearm, plain or armour-tinted) with the red
+	// gauntlet, at the torso breath's own alpha, so both arms and the chest
+	// breathe as one. Same switch (rs_body_breathe) and threshold; when the torso
+	// breath is gone, so is this.
+	//
+	// PLACED BY placeActor, WHICH FOR AN ARM SLOT IS placeArm: the copy gets the
+	// same shoulder seat, reach chain and hand target as the arm, so the engine
+	// solves it onto the same hand in the same frame and it lies exactly on the
+	// arm (DF_LEqual passes identical geometry, as the torso breath relies on).
+	// It also rides the arm's placement prefix, so the near-eye fade applies.
+	private Actor  armBreath[2];
+	private string armBreathClass[2];
+
+	private static string armBreathClassFor(string worn)
+	{
+		if (worn.IndexOf("Green") >= 0) worn = worn.Left(worn.Length() - 5);
+		else if (worn.IndexOf("Blue") >= 0) worn = worn.Left(worn.Length() - 4);
+		return worn .. "Red";
+	}
+
+	private void syncArmBreath(PlayerPawn pawn)
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			int s = RSLOT_ARM_R + i;
+			string want = (parts[s] && partClass[s] != "") ? armBreathClassFor(partClass[s]) : "";
+			class<Actor> cls = (want != "") ? (class<Actor>)(want) : null;
+
+			if (!cls || breathAlpha <= 0.0)
+			{
+				if (armBreath[i]) armBreath[i].Destroy();
+				armBreath[i] = null; armBreathClass[i] = "";
+				continue;
+			}
+
+			if (!armBreath[i] || armBreathClass[i] != want)
+			{
+				if (armBreath[i]) armBreath[i].Destroy();
+				armBreath[i] = Actor.Spawn(cls, pawn.Pos, NO_REPLACE);
+				armBreathClass[i] = want;
+				if (!armBreath[i]) continue;
+				armBreath[i].A_ChangeModel("", 0, "", "", 0, "", "", 0, 0, 0, "", "");
+				placeActor(pawn, armBreath[i], s);
+				armBreath[i].ClearInterpolation();
+			}
+			placeActor(pawn, armBreath[i], s);
+			armBreath[i].A_SetRenderStyle(breathAlpha, STYLE_Translucent);
+		}
+	}
+
 	// ---- the holster in reach: breathe it --------------------------------
 	//
 	// When a squeeze of this hand would store or draw at a holster, that
@@ -1870,6 +1923,8 @@ class RS_VRBodyRig : EventHandler
 		// After the loop: it lies over the torso, so the torso has to have been
 		// decided and placed this tic first.
 		syncBreath(pawn);
+		// The same breath on the arms, at the alpha syncBreath just set.
+		syncArmBreath(pawn);
 
 		// Also after the loop: it lies over a holster the loop just placed.
 		syncHolsterGlow(pawn);

@@ -207,3 +207,8 @@ class RS_PartForearmSlayerRBlue  : RS_PartArmBase {}
 class RS_PartForearmSlayerL      : RS_PartArmBase {}
 class RS_PartForearmSlayerLGreen : RS_PartArmBase {}
 class RS_PartForearmSlayerLBlue  : RS_PartArmBase {}
+// The red breath laid over each arm look (body_rig.zs syncArmBreath), never worn.
+class RS_PartArmSlayerRRed       : RS_PartArmBase {}
+class RS_PartArmSlayerLRed       : RS_PartArmBase {}
+class RS_PartForearmSlayerRRed   : RS_PartArmBase {}
+class RS_PartForearmSlayerLRed   : RS_PartArmBase {}
