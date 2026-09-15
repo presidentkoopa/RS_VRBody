@@ -214,23 +214,70 @@ torso = [("marine_" + m, matpath(m), t) for m, t in bodypart_meshes("torso")] + 
         [("marine_shoulders", matpath(m), t) for m, t in bodypart_meshes("shoulders_protections")]
 write_iqm(os.path.join(OUT, "marine_torso.iqm"), torso)
 
-# ---------------------------------------------------------------- arms, hands cut
+# ---------------------------------------------------------------- arms, hands cut by a PLANE
+# The first cut dropped whole triangles by vertex (dominant in the hand's subtree, or past -0.5): a ragged edge
+# running ~1.9 map units along the forearm, the ring whole only from ~1.0-1.3 units back (wrist_contours.py,
+# 2026-09-15). Now: a plane square to the forearm (lowerArm -> hand), --cut-map R,L map units behind bip_hand,
+# and every triangle that crosses it CLIPPED on it -- new vertices blend position, normal, UV and bone weights,
+# and a crossing edge shared by two triangles makes ONE new vertex, so the cut edge is a single closed ring.
+CUT_MAP = [float(x) for x in sys.argv[sys.argv.index("--cut-map") + 1].split(",")] if "--cut-map" in sys.argv else [1.29, 1.03]
+
+
+def add_vertex(i, j, t):
+    global VP, VN, VT, VB, VW, DOM
+    p = VP[i] + (VP[j] - VP[i]) * t
+    n = VN[i] + (VN[j] - VN[i]) * t
+    n = n / max(np.linalg.norm(n), 1e-9)
+    uv = VT[i] + (VT[j] - VT[i]) * t
+    acc = {}
+    for b, w in zip(VB[i], VW[i]): acc[int(b)] = acc.get(int(b), 0.0) + float(w) * (1.0 - t)
+    for b, w in zip(VB[j], VW[j]): acc[int(b)] = acc.get(int(b), 0.0) + float(w) * t
+    top = sorted(((w, b) for b, w in acc.items() if w > 0), reverse=True)[:3]
+    tot = sum(w for w, _ in top) or 1.0
+    bb = [b for _, b in top] + [0] * (3 - len(top))
+    ww = [w / tot for w, _ in top] + [0.0] * (3 - len(top))
+    VP = np.vstack([VP, p]); VN = np.vstack([VN, n]); VT = np.vstack([VT, uv])
+    VB = np.vstack([VB, bb]); VW = np.vstack([VW, ww]); DOM = np.append(DOM, bb[0])
+    return len(VP) - 1
+
+
 arms = bodypart_meshes("arms")
 for side, S in (("R", "rt"), ("L", "lf")):
     hand = BI["bip_hand_" + side]
     hp = G[hand][:3, 3]; ep = G[BI["bip_lowerArm_" + side]][:3, 3]
     axis = (hp - ep) / np.linalg.norm(hp - ep)
-    hand_set = subtree(hand)
-    is_hand = np.isin(DOM, list(hand_set)) | (((VP - hp) @ axis) > CUT)
+    cut_src = CUT_MAP[0 if side == "R" else 1] / SCALE              # map units -> the file's units
+    c = hp - axis * cut_src
     want_mat = "doomslayer_arm_right_set3_skin" if side == "R" else "doomslayer_arm_left_set3_skin"
-    kept, dropped = [], 0
+    kept, clipped, dropped = [], 0, 0
+    edge_vertex = {}
     for m, tris in arms:
         if m.lower() != want_mat: continue
         for t in tris:
-            if is_hand[list(t)].any(): dropped += 1
-            else: kept.append(t)
-    report.append("arm %s: kept %d triangles, dropped %d as the hand (dominant in bip_hand_%s subtree or past %.2f along the forearm)"
-                  % (side, len(kept), dropped, side, CUT))
+            sd = [float((VP[v] - c) @ axis) for v in t]              # > 0: the hand's side of the plane
+            if all(x <= 0 for x in sd):
+                kept.append(t); continue
+            if all(x > 0 for x in sd):
+                dropped += 1; continue
+            s_of = {t[k]: sd[k] for k in range(3)}
+            poly = []
+            for k in range(3):
+                a, b = t[k], t[(k + 1) % 3]
+                if s_of[a] <= 0:
+                    poly.append(a)
+                if (s_of[a] <= 0) != (s_of[b] <= 0):
+                    lo, hi = min(a, b), max(a, b)
+                    if (lo, hi) not in edge_vertex:
+                        edge_vertex[(lo, hi)] = add_vertex(lo, hi, s_of[lo] / (s_of[lo] - s_of[hi]))
+                    poly.append(edge_vertex[(lo, hi)])
+            for k in range(1, len(poly) - 1):                         # fan, winding kept
+                kept.append((poly[0], poly[k], poly[k + 1]))
+            clipped += 1
+    hand_set = subtree(hand)
+    survivors = len({v for t in kept for v in t if v < len(DOM) and DOM[v] in hand_set})
+    report.append("arm %s: plane %.2f map units behind bip_hand_%s -- kept %d triangles whole, clipped %d, dropped %d; "
+                  "%d new ring vertices; %d kept vertices still ride the hand's bones"
+                  % (side, CUT_MAP[0 if side == "R" else 1], side, len(kept) - 0, clipped, dropped, len(edge_vertex), survivors))
     write_iqm(os.path.join(OUT, "marine_arm_%s.iqm" % S), [("marine_arm_" + S, matpath(want_mat), kept)])
 
 open(os.path.join(OUT, "marine_iqm_report.txt"), "w").write("\n".join(report) + "\n")
