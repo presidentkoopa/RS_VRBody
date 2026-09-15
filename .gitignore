@@ -21,3 +21,8 @@ renders/
 # Slayer arms: meshes and textures stay on disk and in the local pk3, never pushed. PROVENANCE.md is tracked.
 models/helmet/*.obj
 models/helmet/*.png
+
+# THE MARINE BODY (torso, shoulder pads, arms) and its fitted RS hands are made from the same Doom Eternal
+# Classic Slayer download, and the retoned hand skin is matched to it. Same rule: disk and local pk3 only.
+models/marine/*.iqm
+models/marine/*.png
