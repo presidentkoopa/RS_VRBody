@@ -1117,6 +1117,13 @@ class RS_VRBodyRig : EventHandler
 		                                 : cvs("rs_body_style_armleft",  "slayer");
 		if (look == "" || look ~== "none") return "none";
 		if (!cvb("rs_body_arm_armor_color", true)) return look;
+		// A WORN VEST SETS THE COLOUR (owner, 2026-09-15). The vest's colour is the SUIT's,
+		// not the amount's, so a blue suit worn down below 150 is still a blue vest -- and
+		// the gauntlets used to go green under it. The torso slot is decided before the arms
+		// in the slot loop, so partClass[RSLOT_TORSO] is this tic's.
+		string worn = partClass[RSLOT_TORSO];
+		if (worn.IndexOf("VestBlue") >= 0)  return look .. "blue";
+		if (worn.IndexOf("VestGreen") >= 0) return look .. "green";
 		int band = armourBand(pawn);
 		if (band == 2) return look .. "blue";
 		if (band == 1) return look .. "green";
