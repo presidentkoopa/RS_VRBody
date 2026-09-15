@@ -695,13 +695,17 @@ class RS_VRBodyRig : EventHandler
 
 			string style = cvs(hand == 0 ? "rs_body_style_handmain" : "rs_body_style_handoff", "rs");
 			Name want = wearClass(style, hand);
+			// THE MARINE'S HANDS: with a marine arm reaching this hand, the RS hand wears its marine fit -- the
+			// wrist stub shaped to that arm and the marine's skin tone. Same skeleton and frames as the RS hand.
+			bool marineHand = (want == '') && (style ~== "rs") && armIsMarineOn(hand);
+			if (marineHand) want = marineWear(hand);
 			if (hd == dressedOn[hand] && want == dressedAs[hand]) continue;
 
 			hd.A_ChangeModel(want);
 			let ps = ServiceIterator.Find("RS_HandPoseService").Next();
-			// A mesh on the hand's own skeleton and frames ("glove") is not "worn":
-			// no frame map, and its bones can be asked for.
-			bool ownFrames = (want == '') || (style ~== "glove");
+			// A mesh on the hand's own skeleton and frames ("glove", the marine fit) is not
+			// "worn": no frame map, and its bones can be asked for.
+			bool ownFrames = (want == '') || (style ~== "glove") || marineHand;
 			if (ps) ps.GetInt("pose.wear", ownFrames ? "" : wearFrames(style), hand, 0, null, 'RS_VRBody');
 			dressedAs[hand] = want;
 			dressedOn[hand] = hd;
@@ -714,6 +718,23 @@ class RS_VRBodyRig : EventHandler
 		if (style ~== "open")  return (hand == 0) ? 'RS_HandWearOpenMain'  : 'RS_HandWearOpenOff';
 		if (style ~== "glove")  return (hand == 0) ? 'RS_HandWearGloveMain' : 'RS_HandWearGloveOff';
 		return '';
+	}
+
+	// Is the arm reaching this hand a marine arm? The main hand is reached by the right arm slot unless
+	// rs_body_arm_swap turns the pairing round (armTarget). Read from last tic's arm part, so a newly picked
+	// marine arm dresses its hand a tic later.
+	private bool armIsMarineOn(int hand)
+	{
+		bool fromRight = (hand == 0) != cvb("rs_body_arm_swap", false);
+		return partClass[fromRight ? RSLOT_ARM_R : RSLOT_ARM_L].IndexOf("ArmMarine") >= 0;
+	}
+
+	// The marine fit for this hand and the current pairing: A when "Arms reaching the wrong hands" is on.
+	private Name marineWear(int hand)
+	{
+		bool anat = cvb("rs_body_arm_swap", false);
+		if (hand == 0) return anat ? 'RS_HandWearMarineMainA' : 'RS_HandWearMarineMainE';
+		return anat ? 'RS_HandWearMarineOffA' : 'RS_HandWearMarineOffE';
 	}
 
 	// The hand's own frame for every pose, mapped to this style's -- built from
@@ -827,6 +848,18 @@ class RS_VRBodyRig : EventHandler
 		reg("armleft",  "forearmblue",   "RS_PartForearmSlayerLBlue");
 		// THE HELMET: the Doom Eternal Classic Slayer's (models/helmet/PROVENANCE.md).
 		reg("helmet",   "marine",        "RS_PartHelmetMarine");
+		// THE DOOM MARINE (classic), an optional body. The menu offers only "marine"; torsoStyle and armStyle
+		// decide the colour (and, for an arm, the pairing letter a/e) every tic, as they do for the others.
+		reg("torso",    "marine",        "RS_PartTorsoMarineGreen");
+		reg("torso",    "marineblue",    "RS_PartTorsoMarineBlue");
+		reg("armright", "marineagreen",  "RS_PartArmMarineRAGreen");
+		reg("armright", "marineablue",   "RS_PartArmMarineRABlue");
+		reg("armright", "marineegreen",  "RS_PartArmMarineREGreen");
+		reg("armright", "marineeblue",   "RS_PartArmMarineREBlue");
+		reg("armleft",  "marineagreen",  "RS_PartArmMarineLAGreen");
+		reg("armleft",  "marineablue",   "RS_PartArmMarineLABlue");
+		reg("armleft",  "marineegreen",  "RS_PartArmMarineLEGreen");
+		reg("armleft",  "marineeblue",   "RS_PartArmMarineLEBlue");
 	}
 
 	private void ensure()
@@ -949,6 +982,13 @@ class RS_VRBodyRig : EventHandler
 			a.PlacementPrefix = holsterPrefix(s);
 
 		if (s == RSLOT_HELMET) { placeHelmet(pawn, a); return; }
+
+		// The marine torso, and the breath over it, hang on the shoulder line with the marine arms.
+		if (s == RSLOT_TORSO)
+		{
+			String cn = a.GetClassName();
+			if (cn.IndexOf("TorsoMarine") >= 0) { placeMarineTorso(pawn, a); return; }
+		}
 
 		int frame = slotFrame(s);
 		if (frame == RFRAME_ARM) { placeArm(pawn, a, s); return; }
@@ -1107,7 +1147,7 @@ class RS_VRBodyRig : EventHandler
 	// touches the game -- see Engine docs/IK_STAGE1_IMPL_NOTES.md.
 	//
 	// LINT-REACH: rs_arm_rt rs_arm_lf
-	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_quake
+	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_quake rs_arm_sock_marine
 
 	// The look for an arm slot: the menu's base style, wearing the armour tint
 	// the torso would -- 100-149 green, 150+ blue (armourBand).
@@ -1116,6 +1156,14 @@ class RS_VRBodyRig : EventHandler
 		string look = (s == RSLOT_ARM_R) ? cvs("rs_body_style_armright", "slayer")
 		                                 : cvs("rs_body_style_armleft",  "slayer");
 		if (look == "" || look ~== "none") return "none";
+		// THE MARINE'S ARMS are always armoured, in the torso's colour (blue whenever the worn torso is), and
+		// cut for the arm pairing: "a" with "Arms reaching the wrong hands" on, "e" with it off.
+		if (look ~== "marine")
+		{
+			string pair = cvb("rs_body_arm_swap", false) ? "a" : "e";
+			bool blue = partClass[RSLOT_TORSO].IndexOf("Blue") >= 0;
+			return "marine" .. pair .. (blue ? "blue" : "green");
+		}
 		if (!cvb("rs_body_arm_armor_color", true)) return look;
 		// A WORN VEST SETS THE COLOUR (owner, 2026-09-15). The vest's colour is the SUIT's,
 		// not the amount's, so a blue suit worn down below 150 is still a blue vest -- and
@@ -1195,8 +1243,11 @@ class RS_VRBodyRig : EventHandler
 	private void placeArm(PlayerPawn pawn, Actor a, int s)
 	{
 		bool right = (s == RSLOT_ARM_R);
+		String armClass = a.GetClassName();
+		bool marine = armClass.IndexOf("ArmMarine") >= 0;
 		double f, sd, u;
-		[f, sd, u] = shoulderSeat(right);
+		if (marine) { [f, sd, u] = marineShoulderSeat(right, false); }
+		else        { [f, sd, u] = shoulderSeat(right); }
 
 		double by = mBodyYaw;
 		double fx = cos(by), fy = sin(by);
@@ -1220,7 +1271,18 @@ class RS_VRBodyRig : EventHandler
 		// twist reference -- the Slayer's index-minus-pinky off the forearm.
 		Name up, mid, wrist, tuning;
 		Vector3 outward, twistRef;
-		if (right)
+		if (marine)
+		{
+			// The marine's own bones. twistRef by the same method as the Slayer's (index minus pinky
+			// off the forearm, in model order), measured on the marine skeleton at its 0.872 scale.
+			up    = right ? 'bip_upperArm_R' : 'bip_upperArm_L';
+			mid   = right ? 'bip_lowerArm_R' : 'bip_lowerArm_L';
+			wrist = right ? 'bip_hand_R'     : 'bip_hand_L';
+			tuning = right ? 'rs_arm_rt' : 'rs_arm_lf';
+			outward  = right ? (-1, 0, 0) : (1, 0, 0);
+			twistRef = right ? (0.1929, 0.6177, -0.7624) : (-0.1929, 0.6177, -0.7624);
+		}
+		else if (right)
 		{
 			up = 'arm_upper_rt'; mid = 'arm_lower_rt'; wrist = 'arm_hand_rt'; tuning = 'rs_arm_rt';
 			outward = (-1, 0, 0);
@@ -1255,11 +1317,70 @@ class RS_VRBodyRig : EventHandler
 			a.SetModelReachTarget(0, hd, (-6.90, 1.43, -1.10), (1, 0, 0), (0, 0, 0), 'rs_arm_sock_quake');
 			a.SetModelReachTargetJoint(0, 'None');
 		}
+		else if (marine)
+		{
+			// THE MARINE WRIST, MEASURED (tools/marine: wrist_socket.py, stub_reshape.py, arm_rim_tuck.py,
+			// wrist_flex.py; VR_BODY_QUEUE.md item 3). Its forearm is not centred on its own joint line, so
+			// the arm's wrist joint lands off the rigged hand's centre line -- by how much depends on which
+			// hand this arm reaches, so on the pairing. The hand it reaches wears the matching marine fit
+			// (dressWorldHands). The stub is AIMED ABOUT THAT SAME POINT, not the hand's origin: about the
+			// origin, a 40-degree bend pushed the stub 0.3-0.4 map units through the forearm; about the
+			// landing point the seam stays within about 0.2. Model order (file x, z, y), model units.
+			bool anat = cvb("rs_body_arm_swap", false);
+			Vector3 p;
+			if (right) p = anat ? (0.38, 1.47, -1.53) : (0.30, 1.47, 1.60);
+			else       p = anat ? (2.03, 1.47, -1.35) : (0.96, 1.47, 1.68);
+			a.SetModelReachTarget(0, hd, p, (0, -1, 0), (1, 0, 0), 'rs_arm_sock_marine');
+			a.SetModelReachTargetJoint(0, 'Root_joint', p, 70);
+		}
 		else
 		{
 			a.SetModelReachTarget(0, hd, (0, 1.47, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_rs');
 			a.SetModelReachTargetJoint(0, 'Root_joint', (0, 0, 0), 70);
 		}
+	}
+
+	// ---- the marine: one rig on the shoulder line --------------------------
+	//
+	// The marine's torso and arms come from ONE skeleton, so they share one anchor: the SHOULDER LINE this
+	// rig already keeps (shoulderSeat -- the torso's shoulder point through its fit, and the trims). The
+	// torso's PivotOffset is the midpoint of its shoulder joints and sits at the line's centre; each arm's is
+	// its own shoulder joint, MARINE_SHOULDER_HALF either side, scaled by the marine torso's fit size so a
+	// resized torso keeps its arms on its shoulders. The torso fit's offsets move only the torso: move the
+	// whole marine with the shoulder trims ("Where the shoulders sit").
+	const MARINE_SHOULDER_HALF = 7.238;
+
+	private double, double, double marineShoulderSeat(bool right, bool centre)
+	{
+		double f, sd, u;
+		[f, sd, u] = shoulderSeat(right);
+		double sc = cvf("rs_bp_marinetorso_scale",   1.0); if (sc <= 0.0) sc = 1.0;
+		double sx = cvf("rs_bp_marinetorso_scale_x", 1.0); if (sx <= 0.0) sx = 1.0;
+		sd = sSide[RSLOT_TORSO];
+		if (!centre) sd += (right ? 1.0 : -1.0) * MARINE_SHOULDER_HALF * sc * sx;
+		return f, sd, u;
+	}
+
+	// Placed in the body frame exactly as an arm is (placeArm), on the shoulder line's centre.
+	private void placeMarineTorso(PlayerPawn pawn, Actor a)
+	{
+		double f, sd, u;
+		[f, sd, u] = marineShoulderSeat(true, true);
+		double by = mBodyYaw;
+		double fx = cos(by), fy = sin(by);
+		double rx = sin(by), ry = -cos(by);
+		a.SetOrigin((pawn.HmdPos.X + f * fx + sd * rx,
+		             pawn.HmdPos.Y + f * fy + sd * ry,
+		             pawn.HmdPos.Z + u), true);
+		a.FollowBodyOfs  = (f, sd, u);
+		a.FollowBodyYaw  = by;
+		a.FollowBodyMode = 2;
+		a.angle = by;
+		a.pitch = 0;
+		a.roll  = 0;
+		a.Scale = (1.0, 1.0);   // the size is the fit's _scale, never a second writer
+		a.FollowBodyYawInterp = true;
+		if (snapTurn) a.ClearInterpolation();
 	}
 
 	// ARM SIZE FROM YOUR OWN REACH (plan 4b idea 2). Arms straight out to the
@@ -1313,6 +1434,20 @@ class RS_VRBodyRig : EventHandler
 	{
 		string style = cvs("rs_body_style_torso", "quake");
 		if (style == "" || style ~== "none") return "none";
+
+		// THE MARINE RECOLOURS AND NEVER WEARS A VEST (owner, 2026-09-15: "recolour, keep the mesh", and
+		// "follow the suit"): blue while a blue suit is worn, green while a green one is, otherwise by the
+		// amount (150+ blue), and green at rest. Its red breath is laid over it like any torso's (syncBreath).
+		if (style ~== "marine")
+		{
+			let mw = RS_BodyArmorWatch(pawn.FindInventory("RS_BodyArmorWatch"));
+			if (!mw) pawn.GiveInventory("RS_BodyArmorWatch", 1);
+			bool blue;
+			if (mw && mw.suit == 2)      blue = true;
+			else if (mw && mw.suit == 1) blue = false;
+			else                         blue = (armourBand(pawn) == 2);
+			return blue ? "marineblue" : "marine";
+		}
 
 		let watch = RS_BodyArmorWatch(pawn.FindInventory("RS_BodyArmorWatch"));
 		if (!watch)
@@ -1436,7 +1571,10 @@ class RS_VRBodyRig : EventHandler
 			return;
 		}
 
-		string want = (partClass[RSLOT_TORSO].IndexOf("Vest") >= 0) ? "RS_PartVestRed" : "RS_PartTorsoRed";
+		string worn = partClass[RSLOT_TORSO];
+		string want = "RS_PartTorsoRed";
+		if (worn.IndexOf("TorsoMarine") >= 0) want = "RS_PartTorsoMarineRed";
+		else if (worn.IndexOf("Vest") >= 0)   want = "RS_PartVestRed";
 		int below = max(1, cvi("rs_body_breathe_below", 25));
 		int hp    = pawn.Health;
 

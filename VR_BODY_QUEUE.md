@@ -34,15 +34,33 @@ Close-up state, 2026-09-15 (owner: "we're done for today, so close up shop"). It
   - With the pivot at the hand origin (as today), bends pushed the stub out 0.3-0.4.
   - **No engine weld is needed.**
 
+**Done since close-up (2026-09-15, afternoon):**
+- **Both pairings finished at the 1.29 cut:** sockets, reshaped hands, and the bend tests with the stub aimed about the landing point.
+- **`arm_rim_tuck.py`:** each arm's cut ring is laid onto the reshaped RS wrist it meets.
+  - Bare right arm: seam gap 0.01-0.02 straight, and within about 0.2 through the bends.
+  - Gauntlet: a cuff.
+  - There is one arm file per pairing.
+- **Seam close-ups:** sent to the owner (`renders/marine`). The seam geometry is closed.
+- **The remaining visible band is shading, not colour:** the strip and the forearm skin match in Lab (L 69.8 vs 69.5), so a tone pass changed nothing. It is the short flare collar plus smooth vs faceted shading. Judge it in the headset first.
+- **Assets installed** in `models/marine/` (gitignored; PROVENANCE.md tracked).
+- **WIRED, OFF BY DEFAULT**; menu_lint `--prefix rs_` shows no new problems:
+  - **body_parts.zs:** marine torso x3, arms x12 (side / pairing / colour), hand wears x4.
+  - **MODELDEF:** the matching blocks, pivots on the marine shoulder joints.
+  - **body_rig.zs:**
+    - the registry;
+    - `torsoStyle` "marine": follows the suit, never a vest;
+    - `armStyle` "marine": pairing and colour;
+    - `syncBreath`: the marine red;
+    - `placeMarineTorso` / `marineShoulderSeat`: the shoulder line;
+    - `placeArm`: marine joints, twistRef, measured socket per pairing, aim pivot at the landing point;
+    - `dressWorldHands`: the marine hand wear when a marine arm reaches that hand.
+  - **CVARINFO:** `rs_bp_marinetorso`, `rs_bp_marinearmright/left`, `rs_arm_sock_marine`.
+  - **MENUDEF:** "Doom marine (classic)" torso, "Doom marine arm", fit sliders, marine hand socket nudges.
+
 **Next:**
-1. Finish the engine-pairing sockets for the 0.80 and 1.29 cuts (a background run was left going), then reshape both pairings at 1.29.
-2. Textured close-up renders of the seam, straight and bent, for the owner.
-3. Wire it, off by default:
-   - marine torso and arm styles, and a marine hand wear per hand, picked by `rs_body_arm_swap`;
-   - socket offsets per arm per pairing, on a new socket cvar prefix;
-   - `SetModelReachTargetJoint` pivot at the landing point for the marine arms;
-   - the armour colours and red breath, following Quake torso rules.
-4. Batch check and install only after the owner sees the renders.
+1. Scratch pack and compile check (a folder turn was asked for), then commit locally.
+2. **Owner:** install it for a headset look? It is off by default and adds about 45 MB of assets to RS_VRBody.pk3.
+3. **In the headset:** the seam band, the shoulder line (the marine anchors on the Quake torso's shoulder point), facing (yaw 0, like the Slayer arms), and arm size (calibrate writes only the Slayer arm scale today).
 
 ## 4. Section 8 agreement on `Engine docs/MODEL_JOINT_DRIVE_PLAN.md`
 **Verdict: AGREE, with 8 conditions.** From a read-only review. Its order and generation claims were checked against `model_reach.cpp` 960-1075, where the order is ApplyPoses → chains → aims → cache → test channel, and `Changed()` bumps `generation`, which `ResolveChain` treats as a re-resolve and wipes the history.

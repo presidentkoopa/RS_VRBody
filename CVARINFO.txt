@@ -555,6 +555,52 @@ user float rs_arm_sock_rs_ofs_z    = 0.0;
 user float rs_arm_sock_quake_ofs_x = 0.0;
 user float rs_arm_sock_quake_ofs_y = 0.0;
 user float rs_arm_sock_quake_ofs_z = 0.0;
+// The marine's fitted wrists (body_rig.zs placeArm): a live nudge on top of the measured socket.
+user float rs_arm_sock_marine_ofs_x = 0.0;
+user float rs_arm_sock_marine_ofs_y = 0.0;
+user float rs_arm_sock_marine_ofs_z = 0.0;
+
+// ---------------------------------------------------------- the marine body ---
+// THE DOOM MARINE (classic), an optional body, torso up. OFF BY DEFAULT: pick "Doom marine (classic)" as the
+// torso's Colour and "Doom marine arm" for each arm. Its armour follows your suit (green, blue) and breathes red
+// at low health, like the torso; its hands wear a marine fit of the RS hand automatically.
+// Each FIT is read by the RENDERER (MODELDEF PlacementCVars), so it moves live. The torso hangs on the shoulder
+// line with its arms (body_rig.zs placeMarineTorso); its SIZE also sets the arms' spacing, its offsets do not --
+// move the whole marine with the shoulder trims.
+user float rs_bp_marinetorso_ofs_x   = 0.0;
+user float rs_bp_marinetorso_ofs_y   = 0.0;
+user float rs_bp_marinetorso_ofs_z   = 0.0;
+user float rs_bp_marinetorso_yaw     = 0.0;
+user float rs_bp_marinetorso_pitch   = 0.0;
+user float rs_bp_marinetorso_roll    = 0.0;
+user float rs_bp_marinetorso_scale   = 1.0;
+user float rs_bp_marinetorso_scale_x = 1.0;
+user float rs_bp_marinetorso_scale_y = 1.0;
+user float rs_bp_marinetorso_scale_z = 1.0;
+user float rs_bp_marinearmright_ofs_x   = 0.0;
+user float rs_bp_marinearmright_ofs_y   = 0.0;
+user float rs_bp_marinearmright_ofs_z   = 0.0;
+user float rs_bp_marinearmright_yaw     = 0.0;
+user float rs_bp_marinearmright_pitch   = 0.0;
+user float rs_bp_marinearmright_roll    = 0.0;
+user float rs_bp_marinearmright_scale   = 1.0;
+user float rs_bp_marinearmright_scale_x = 1.0;
+user float rs_bp_marinearmright_scale_y = 1.0;
+user float rs_bp_marinearmright_scale_z = 1.0;
+user float rs_bp_marinearmright_eyefade_near = 4.0;
+user float rs_bp_marinearmright_eyefade_far  = 10.0;
+user float rs_bp_marinearmleft_ofs_x    = 0.0;
+user float rs_bp_marinearmleft_ofs_y    = 0.0;
+user float rs_bp_marinearmleft_ofs_z    = 0.0;
+user float rs_bp_marinearmleft_yaw      = 0.0;
+user float rs_bp_marinearmleft_pitch    = 0.0;
+user float rs_bp_marinearmleft_roll     = 0.0;
+user float rs_bp_marinearmleft_scale    = 1.0;
+user float rs_bp_marinearmleft_scale_x  = 1.0;
+user float rs_bp_marinearmleft_scale_y  = 1.0;
+user float rs_bp_marinearmleft_scale_z  = 1.0;
+user float rs_bp_marinearmleft_eyefade_near = 4.0;
+user float rs_bp_marinearmleft_eyefade_far  = 10.0;
 
 // ------------------------------------------------ the body follows your hands ---
 // When BOTH hands are held out in front of the body, the body turns toward where

@@ -219,3 +219,45 @@ class RS_PartArmSlayerRRed       : RS_PartArmBase {}
 class RS_PartArmSlayerLRed       : RS_PartArmBase {}
 class RS_PartForearmSlayerRRed   : RS_PartArmBase {}
 class RS_PartForearmSlayerLRed   : RS_PartArmBase {}
+
+// ---------------------------------------------------------------- the marine ----
+//
+// THE DOOM MARINE (classic), AN OPTIONAL BODY, torso up: torso with shoulder pads, and arms whose hands are
+// cut so the hand on your controller sits in the wrist. From the owner's Doom Eternal Classic Slayer download
+// (models/marine/PROVENANCE.md). Its armour is RECOLOURED, never swapped for a vest (owner, 2026-09-15):
+// green, blue while a blue suit is worn or armour is 150+, and red breathing over it at low health.
+//
+// DECOUPLED WITH A BaseFrame, like the Slayer arms: IQMs drawn in their bind pose, bent by the reach chain.
+class RS_PartTorsoMarineBase : RS_BodyPart abstract
+{
+	Default { +DECOUPLEDANIMATIONS; }
+	States { Spawn: TRSO A -1; Stop; }
+}
+class RS_PartTorsoMarineGreen : RS_PartTorsoMarineBase {}
+class RS_PartTorsoMarineBlue  : RS_PartTorsoMarineBase {}
+class RS_PartTorsoMarineRed   : RS_PartTorsoMarineBase {}   // the breath, never worn
+
+// THE MARINE'S ARMS, one per side, per ARM PAIRING and per colour. The cut rim is laid onto the RS wrist the
+// arm meets, and which wrist that is depends on "Arms reaching the wrong hands" (rs_body_arm_swap): A = on
+// (the anatomical pairing), E = off (the engine's). The pairing letter comes BEFORE the colour so
+// armBreathClassFor's "strip Green/Blue, add Red" lands on the red copy.
+class RS_PartArmMarineRAGreen : RS_PartArmBase {}
+class RS_PartArmMarineRABlue  : RS_PartArmBase {}
+class RS_PartArmMarineRARed   : RS_PartArmBase {}
+class RS_PartArmMarineREGreen : RS_PartArmBase {}
+class RS_PartArmMarineREBlue  : RS_PartArmBase {}
+class RS_PartArmMarineRERed   : RS_PartArmBase {}
+class RS_PartArmMarineLAGreen : RS_PartArmBase {}
+class RS_PartArmMarineLABlue  : RS_PartArmBase {}
+class RS_PartArmMarineLARed   : RS_PartArmBase {}
+class RS_PartArmMarineLEGreen : RS_PartArmBase {}
+class RS_PartArmMarineLEBlue  : RS_PartArmBase {}
+class RS_PartArmMarineLERed   : RS_PartArmBase {}
+
+// THE MARINE'S HANDS: RS_WorldHands' RS hand -- same skeleton, every frame -- with its wrist stub shaped to the
+// marine arm reaching it and its skin toned to the marine's. Worn by the world hand (dressWorldHands), one per
+// hand and per pairing.
+class RS_HandWearMarineMainA : RS_HandWearBase {}
+class RS_HandWearMarineMainE : RS_HandWearBase {}
+class RS_HandWearMarineOffA  : RS_HandWearBase {}
+class RS_HandWearMarineOffE  : RS_HandWearBase {}

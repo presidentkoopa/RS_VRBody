@@ -318,6 +318,253 @@ Model RS_PartHandIQMOff
 	BaseFrame
 }
 
+// ============================================================= THE MARINE ==
+//
+// The Doom marine (classic), an optional body -- models/marine/PROVENANCE.md, body_parts.zs. Every file is in
+// the Source model's own frame (+X left, -Y forward, +Z up, the Slayer arm IQMs' frame), so the facing that
+// suits the Slayer arms suits these.
+//
+// ONE RIG, ONE ANCHOR. The torso's PivotOffset is the midpoint of its shoulder joints; each arm's is its own
+// shoulder joint, 7.238 either side. The rig seats all three on the shoulder line (body_rig.zs
+// placeMarineTorso / marineShoulderSeat), so the arms hang exactly where the torso's shoulders are.
+// SurfaceSkin on every surface (a skin that fails to resolve draws nothing). Torso surfaces: 0 the neck skin,
+// 1 the torso, 2 the shoulder pads. Arms: one surface. Hands: RS_HandWorldMain / Off's own placement.
+
+Model RS_PartTorsoMarineGreen
+{
+	Path "models/marine"
+	Model 0 "marine_torso.iqm"
+	SurfaceSkin 0 0 "doomslayer_head.png"
+	SurfaceSkin 0 1 "doomslayer_torso_set3_skin_green.png"
+	SurfaceSkin 0 2 "doomslayer_shoulders_set3_skin_green.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 0.0 0.979 51.689
+	PlacementCVars rs_bp_marinetorso
+	BaseFrame
+}
+
+Model RS_PartTorsoMarineBlue
+{
+	Path "models/marine"
+	Model 0 "marine_torso.iqm"
+	SurfaceSkin 0 0 "doomslayer_head.png"
+	SurfaceSkin 0 1 "doomslayer_torso_set3_skin_blue.png"
+	SurfaceSkin 0 2 "doomslayer_shoulders_set3_skin_blue.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 0.0 0.979 51.689
+	PlacementCVars rs_bp_marinetorso
+	BaseFrame
+}
+
+Model RS_PartTorsoMarineRed
+{
+	Path "models/marine"
+	Model 0 "marine_torso.iqm"
+	SurfaceSkin 0 0 "doomslayer_head.png"
+	SurfaceSkin 0 1 "doomslayer_torso_set3_skin_red.png"
+	SurfaceSkin 0 2 "doomslayer_shoulders_set3_skin_red.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 0.0 0.979 51.689
+	PlacementCVars rs_bp_marinetorso
+	BaseFrame
+}
+
+Model RS_PartArmMarineRAGreen
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_green.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineRABlue
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_blue.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineRARed
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_red.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineREGreen
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_green.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineREBlue
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_blue.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineRERed
+{
+	Path "models/marine"
+	Model 0 "marine_arm_rt_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin_red.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset -7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmright
+	BaseFrame
+}
+
+Model RS_PartArmMarineLAGreen
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_green.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_PartArmMarineLABlue
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_blue.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_PartArmMarineLARed
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_anatomical.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_red.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_PartArmMarineLEGreen
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_green.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_PartArmMarineLEBlue
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_blue.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_PartArmMarineLERed
+{
+	Path "models/marine"
+	Model 0 "marine_arm_lf_engine.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin_red.png"
+	Scale 1.0 1.0 1.0
+	PivotOffset 7.238 0.979 51.689
+	PlacementCVars rs_bp_marinearmleft
+	BaseFrame
+}
+
+Model RS_HandWearMarineMainA
+{
+	Path "models/marine"
+	Model 0 "hand_marine_main_anatomical.iqm"
+	Skin 0 "hand_basecolor_marine.png"
+	PlacementCVars rs_hw_main
+	Scale -1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_HandWearMarineMainE
+{
+	Path "models/marine"
+	Model 0 "hand_marine_main_engine.iqm"
+	Skin 0 "hand_basecolor_marine.png"
+	PlacementCVars rs_hw_main
+	Scale -1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowMainHand
+	BaseFrame
+}
+
+Model RS_HandWearMarineOffA
+{
+	Path "models/marine"
+	Model 0 "hand_marine_off_anatomical.iqm"
+	Skin 0 "hand_basecolor_marine.png"
+	PlacementCVars rs_hw_off
+	Scale 1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
+Model RS_HandWearMarineOffE
+{
+	Path "models/marine"
+	Model 0 "hand_marine_off_engine.iqm"
+	Skin 0 "hand_basecolor_marine.png"
+	PlacementCVars rs_hw_off
+	Scale 1.0 1.0 1.0
+	Offset 0.0 0.1 -0.05
+	AngleOffset 0.0
+	PitchOffset 90.0
+	RollOffset -90.0
+	NOAUTOREVERSE
+	FollowOffHand
+	BaseFrame
+}
+
 // ---- RECOLOURED TORSOS ------------------------------------------------------
 //
 // THE SAME MESH, A DIFFERENT SKIN. vrtorso.mdl carries its own 8-bit skin

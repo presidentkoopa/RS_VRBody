@@ -66,6 +66,7 @@ OptionString "RS_BodyTorsoStyles"
 	"green", "Green"
 	"blue",  "Blue"
 	"red",   "Red"
+	"marine", "Doom marine (classic)"
 }
 
 OptionString "RS_BodyHolsterStyles"
@@ -79,8 +80,6 @@ OptionString "RS_BodyHandStyles"
 	"none",  "None"
 	"rs",    "RS hands (full poses)"
 	"glove", "Ermac glove (full poses)"
-	"quake", "Quake fist (coarse)"
-	"open",  "Quake open hand (coarse)"
 }
 
 OptionString "RS_BodyBootStyles"
@@ -94,6 +93,7 @@ OptionString "RS_BodyArmStyles"
 	"none",    "None"
 	"slayer",  "Slayer arm"
 	"forearm", "Slayer forearm only"
+	"marine",  "Doom marine arm"
 }
 
 OptionString "RS_BodyHelmetStyles"
@@ -286,6 +286,19 @@ OptionMenu "RS_VRBodyFits"
 	Slider    "  Width",       "rs_bp_torso_scale_x", 0.2, 10, 0.1, 1
 	Slider    "  Depth",       "rs_bp_torso_scale_y", 0.2, 10, 0.1, 1
 	Slider    "  Height",      "rs_bp_torso_scale_z", 0.2, 10, 0.1, 1
+	StaticText ""
+	StaticText "Doom marine torso -- the torso Colour \"Doom marine\"", 1
+	Slider    "X",     "rs_bp_marinetorso_ofs_x", -32.0, 32.0, 0.01, 3
+	Slider    "Y",     "rs_bp_marinetorso_ofs_y", -32.0, 32.0, 0.01, 3
+	Slider    "Z",     "rs_bp_marinetorso_ofs_z", -32.0, 32.0, 0.01, 3
+	Slider    "Yaw",   "rs_bp_marinetorso_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_marinetorso_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_marinetorso_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_marinetorso_scale",   0.05, 4.0, 0.01, 3
+	Slider    "  Width",       "rs_bp_marinetorso_scale_x", 0.2, 10, 0.1, 1
+	Slider    "  Depth",       "rs_bp_marinetorso_scale_y", 0.2, 10, 0.1, 1
+	Slider    "  Height",      "rs_bp_marinetorso_scale_z", 0.2, 10, 0.1, 1
+	StaticText "Its arms follow its size, not its offsets.", "DarkGray"
 	StaticText ""
 	StaticText "Armour vest -- worn when you have armour", 1
 	Slider    "X",     "rs_bp_vest_ofs_x", -32.0, 32.0, 0.01, 3
@@ -696,13 +709,31 @@ OptionMenu "RS_VRBodyArms"
 	Slider    "Roll",         "rs_bp_armleft_roll",   -180.0, 180.0, 1, 0
 	Slider    "ARM SIZE",     "rs_bp_armleft_scale",  0.5, 2.0, 0.01, 2
 	StaticText ""
+	StaticText "Doom marine right arm fit", 1
+	Slider    "X",            "rs_bp_marinearmright_ofs_x", -32.0, 32.0, 0.1, 1
+	Slider    "Y",            "rs_bp_marinearmright_ofs_y", -32.0, 32.0, 0.1, 1
+	Slider    "Z",            "rs_bp_marinearmright_ofs_z", -32.0, 32.0, 0.1, 1
+	Slider    "Yaw",          "rs_bp_marinearmright_yaw",   -180.0, 180.0, 1, 0
+	Slider    "Pitch",        "rs_bp_marinearmright_pitch", -180.0, 180.0, 1, 0
+	Slider    "Roll",         "rs_bp_marinearmright_roll",  -180.0, 180.0, 1, 0
+	Slider    "ARM SIZE",     "rs_bp_marinearmright_scale", 0.5, 2.0, 0.01, 2
+	StaticText ""
+	StaticText "Doom marine left arm fit", 1
+	Slider    "X",            "rs_bp_marinearmleft_ofs_x",  -32.0, 32.0, 0.1, 1
+	Slider    "Y",            "rs_bp_marinearmleft_ofs_y",  -32.0, 32.0, 0.1, 1
+	Slider    "Z",            "rs_bp_marinearmleft_ofs_z",  -32.0, 32.0, 0.1, 1
+	Slider    "Yaw",          "rs_bp_marinearmleft_yaw",    -180.0, 180.0, 1, 0
+	Slider    "Pitch",        "rs_bp_marinearmleft_pitch",  -180.0, 180.0, 1, 0
+	Slider    "Roll",         "rs_bp_marinearmleft_roll",   -180.0, 180.0, 1, 0
+	Slider    "ARM SIZE",     "rs_bp_marinearmleft_scale",  0.5, 2.0, 0.01, 2
+	StaticText ""
 	StaticText "Where the arm meets the hand", 1
 	Slider    "Rigged hand X",  "rs_arm_sock_rs_ofs_x",    -8.0, 8.0, 0.05, 2
 	Slider    "Rigged hand Y",  "rs_arm_sock_rs_ofs_y",    -8.0, 8.0, 0.05, 2
 	Slider    "Rigged hand Z",  "rs_arm_sock_rs_ofs_z",    -8.0, 8.0, 0.05, 2
-	Slider    "Quake hand X",   "rs_arm_sock_quake_ofs_x", -8.0, 8.0, 0.05, 2
-	Slider    "Quake hand Y",   "rs_arm_sock_quake_ofs_y", -8.0, 8.0, 0.05, 2
-	Slider    "Quake hand Z",   "rs_arm_sock_quake_ofs_z", -8.0, 8.0, 0.05, 2
+	Slider    "Marine hand X",  "rs_arm_sock_marine_ofs_x", -8.0, 8.0, 0.05, 2
+	Slider    "Marine hand Y",  "rs_arm_sock_marine_ofs_y", -8.0, 8.0, 0.05, 2
+	Slider    "Marine hand Z",  "rs_arm_sock_marine_ofs_z", -8.0, 8.0, 0.05, 2
 	StaticText "In the hand's own units and axes: slide the wrist in", "DarkGray"
 	StaticText "or out of the gauntlet.", "DarkGray"
 	StaticText ""
@@ -744,6 +775,10 @@ OptionMenu "RS_VRBodyArms"
 	Slider    "  Gone at",                     "rs_bp_armright_eyefade_near", 0.0, 24.0, 0.5, 1
 	Slider    "Left arm fades from (eye)",     "rs_bp_armleft_eyefade_far",   0.0, 24.0, 0.5, 1
 	Slider    "  Gone at",                     "rs_bp_armleft_eyefade_near",  0.0, 24.0, 0.5, 1
+	Slider    "Marine right arm fades from",   "rs_bp_marinearmright_eyefade_far",  0.0, 24.0, 0.5, 1
+	Slider    "  Gone at",                     "rs_bp_marinearmright_eyefade_near", 0.0, 24.0, 0.5, 1
+	Slider    "Marine left arm fades from",    "rs_bp_marinearmleft_eyefade_far",   0.0, 24.0, 0.5, 1
+	Slider    "  Gone at",                     "rs_bp_marinearmleft_eyefade_near",  0.0, 24.0, 0.5, 1
 	StaticText "Map units from your eyes. Fades from 0 is off.", "DarkGray"
 }
 
