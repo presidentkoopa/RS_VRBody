@@ -5,7 +5,9 @@ Not in git (`.gitignore`: `models/marine/*.iqm`, `*.png`). This file records whe
 | File | From |
 |---|---|
 | `marine_torso.iqm` | the `torso` and `shoulders_protections` bodyparts of `Slayer_Classic_Skins.mdl` (Source engine, IDST v48), on its full 152-joint skeleton, bind pose |
-| `marine_arm_{rt,lf}_{anatomical,engine}.iqm` | the `arms` bodypart's right and left arm materials, with the hands CUT on a plane 1.29 map units behind `bip_hand_*`, square to the forearm; crossing triangles are clipped. The cut rim is then laid onto the reshaped RS wrist it meets (`arm_rim_tuck.py`), so there is one arm per pairing |
+| `marine_arm_rt_{anatomical,engine}.iqm` | the `arms` bodypart's right arm (bare forearm), hand CUT on a plane 1.29 map units behind `bip_hand_R`, square to the forearm, crossing triangles clipped; the cut rim then laid onto the reshaped RS wrist it meets (`arm_rim_tuck.py`), one per pairing |
+| `marine_arm_lf_{anatomical,engine}.iqm` | the left arm (gauntlet), cut at 0.45 map units and NOT tucked, so the whole gold bracer stays as a cuff over the wrist (owner: the 1.29 tucked left wrist "looks kinda rough"). Both files are the same mesh; the pairing lives in the socket and the hand |
+| `hand_marine_off_engine.iqm`, `hand_marine_main_anatomical.iqm` | the hands the LEFT arm reaches, reshaped for its 0.45 cut; the other two hands are the right arm's, for its 1.29 cut |
 | `doomslayer_torso_set3_skin_{green,blue,red}.png`, `doomslayer_shoulders_set3_skin_*`, `doomslayer_arm_{left,right}_set3_skin_*` | the `.vtf` skins (DXT5 2048x2048), decoded. `red` is the original; `green`/`blue` have only the red plating turned to the Quake torso skins' hue (skin, metal and buckles kept) |
 | `doomslayer_head.png` | the neck skin, decoded |
 | `hand_marine_{main,off}_{anatomical,engine}.iqm` | RS_WorldHands' `hand_left_poses.iqm` (same skeleton, all frames) with its wrist stub reshaped to the marine arm it meets, one per hand and per arm pairing (`rs_body_arm_swap` 1 = anatomical, 0 = engine) |

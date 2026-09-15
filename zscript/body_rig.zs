@@ -1306,7 +1306,10 @@ class RS_VRBodyRig : EventHandler
 			bool anat = cvb("rs_body_arm_swap", false);
 			Vector3 p;
 			if (right) p = anat ? (0.38, 1.47, -1.53) : (0.30, 1.47, 1.60);
-			else       p = anat ? (2.03, 1.47, -1.35) : (0.96, 1.47, 1.68);
+			// The LEFT arm is cut closer (0.45 map units behind the wrist, untucked) so its whole gold bracer
+			// stays as a cuff over the wrist (owner, 2026-09-15: the left wrist "looks kinda rough" -- the 1.29
+			// cut went through the bracer). Its sockets are that cut's: anatomical (0.80, -1.35), engine unchanged.
+			else       p = anat ? (0.80, 1.47, -1.35) : (0.96, 1.47, 1.68);
 			a.SetModelReachTarget(0, hd, p, (0, -1, 0), (1, 0, 0), 'rs_arm_sock_marine');
 			a.SetModelReachTargetJoint(0, 'Root_joint', p, 70);
 		}
