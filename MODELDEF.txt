@@ -134,96 +134,9 @@ Model RS_PartHelmetMarine
 // NOAUTOREVERSE because these are two distinct draws of one mesh and the mirror
 // is on the Scale line, where it can be seen.
 
-Model RS_PartHandQuakeMain
-{
-	Path "models"
-	Model 0 "hand.mdl"
-	Scale -1.2 1.2 1.2
-	PlacementCVars rs_bp_handmain
-	NOAUTOREVERSE
-	FollowMainHand
-	FrameIndex QHND A 0 0
-}
-
-Model RS_PartHandQuakeOff
-{
-	Path "models"
-	Model 0 "hand.mdl"
-	Scale 1.2 1.2 1.2
-	PlacementCVars rs_bp_handoff
-	NOAUTOREVERSE
-	FollowOffHand
-	FrameIndex QHND A 0 0
-}
-
-Model RS_PartHandOpenMain
-{
-	Path "models"
-	Model 0 "openhand.mdl"
-	Scale -1.2 1.2 1.2
-	PlacementCVars rs_bp_handmain
-	NOAUTOREVERSE
-	FollowMainHand
-	FrameIndex QHNO A 0 0
-}
-
-Model RS_PartHandOpenOff
-{
-	Path "models"
-	Model 0 "openhand.mdl"
-	Scale 1.2 1.2 1.2
-	PlacementCVars rs_bp_handoff
-	NOAUTOREVERSE
-	FollowOffHand
-	FrameIndex QHNO A 0 0
-}
-
-// WORN BY RS_WorldHands' HAND -- see RS_HandWearBase in body_parts.zs. The same
-// meshes, scales and sliders as the four blocks above, with BaseFrame instead of
-// a FrameIndex because the hand wearing them is decoupled.
-Model RS_HandWearQuakeMain
-{
-	Path "models"
-	Model 0 "hand.mdl"
-	Scale -1.2 1.2 1.2
-	PlacementCVars rs_bp_handmain
-	NOAUTOREVERSE
-	FollowMainHand
-	BaseFrame
-}
-
-Model RS_HandWearQuakeOff
-{
-	Path "models"
-	Model 0 "hand.mdl"
-	Scale 1.2 1.2 1.2
-	PlacementCVars rs_bp_handoff
-	NOAUTOREVERSE
-	FollowOffHand
-	BaseFrame
-}
-
-Model RS_HandWearOpenMain
-{
-	Path "models"
-	Model 0 "openhand.mdl"
-	Scale -1.2 1.2 1.2
-	PlacementCVars rs_bp_handmain
-	NOAUTOREVERSE
-	FollowMainHand
-	BaseFrame
-}
-
-Model RS_HandWearOpenOff
-{
-	Path "models"
-	Model 0 "openhand.mdl"
-	Scale 1.2 1.2 1.2
-	PlacementCVars rs_bp_handoff
-	NOAUTOREVERSE
-	FollowOffHand
-	BaseFrame
-}
+// THE QUAKE HANDS (fist and open hand) ARE OUT (owner, 2026-09-15: "quake hands, out"). Their blocks, classes,
+// wrist socket and pose table are gone; hand.mdl / openhand.mdl are in _removed/quake_hands. Every hand this
+// body draws is now on the RS hand's skeleton and frames.
 
 // THE ERMAC GLOVE, for the "glove" hand style. RS_WorldHands draws the RS hand by default
 // again (owner, 2026-09-15); this dresses its hand in Ermac's (iAmErmac, MIT) fingerless glove,

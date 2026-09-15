@@ -92,25 +92,7 @@ class RS_PartHolsterQuake : RS_BodyPart
 // separate classes only because MODELDEF binds per class and each needs its own
 // follow flag.
 
-class RS_PartHandQuakeMain : RS_BodyPart
-{
-	States { Spawn: QHND A -1; Stop; }
-}
-
-class RS_PartHandQuakeOff : RS_BodyPart
-{
-	States { Spawn: QHND A -1; Stop; }
-}
-
-class RS_PartHandOpenMain : RS_BodyPart
-{
-	States { Spawn: QHNO A -1; Stop; }
-}
-
-class RS_PartHandOpenOff : RS_BodyPart
-{
-	States { Spawn: QHNO A -1; Stop; }
-}
+// The Quake fist and open hand were here: out on the owner's word (2026-09-15).
 
 // WORN, NEVER SPAWNED. When RS_WorldHands owns the hand slots its hand is the
 // one drawn, and these are what it wears: the rig hands a hand one of these as
@@ -126,10 +108,6 @@ class RS_HandWearBase : Actor abstract
 	Default { +NOINTERACTION; +NOBLOCKMAP; +DECOUPLEDANIMATIONS; }
 	States { Spawn: QHND A -1; Stop; }
 }
-class RS_HandWearQuakeMain : RS_HandWearBase {}
-class RS_HandWearQuakeOff  : RS_HandWearBase {}
-class RS_HandWearOpenMain  : RS_HandWearBase {}
-class RS_HandWearOpenOff   : RS_HandWearBase {}
 // The Ermac glove (hand_ermac.iqm): the same skeleton and every frame of the default RS
 // hand, so it poses exactly like it and needs no frame map.
 class RS_HandWearGloveMain : RS_HandWearBase {}

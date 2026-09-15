@@ -9,7 +9,7 @@ user bool   rs_body_enabled = true;
 // What fills each kind of slot. "none" empties it. Adding a variant means a
 // class, a MODELDEF block and one line in the rig's registry -- not a change
 // here, since these are free-form strings looked up at runtime.
-user string rs_body_style_torso    = "quake";
+user string rs_body_style_torso    = "marine";   // the Doom marine is ON (owner, 2026-09-15)
 user string rs_body_style_holster  = "quake";
 user string rs_body_style_handmain = "rs";
 user string rs_body_style_handoff  = "rs";
@@ -443,8 +443,8 @@ user noarchive float rs_body_hl8 = 0.0;
 // The Slayer's arms between your torso and your hands (plan: Engine docs/
 // VR_BODY_IK_RETURN_PLAN.md). "slayer" the whole arm, "forearm" just the forearm,
 // "none" no arm on that side.
-user string rs_body_style_armright = "slayer";
-user string rs_body_style_armleft  = "slayer";
+user string rs_body_style_armright = "marine";   // the Doom marine is ON (owner, 2026-09-15)
+user string rs_body_style_armleft  = "marine";
 
 // The gauntlet follows your armour like the torso: 100-149 green, 150+ blue.
 user bool  rs_body_arm_armor_color = true;
@@ -552,9 +552,6 @@ user float rs_arm_lf_clear_rate   = 0.0;
 user float rs_arm_sock_rs_ofs_x    = 0.0;
 user float rs_arm_sock_rs_ofs_y    = 0.0;
 user float rs_arm_sock_rs_ofs_z    = 0.0;
-user float rs_arm_sock_quake_ofs_x = 0.0;
-user float rs_arm_sock_quake_ofs_y = 0.0;
-user float rs_arm_sock_quake_ofs_z = 0.0;
 // The marine's fitted wrists (body_rig.zs placeArm): a live nudge on top of the measured socket.
 user float rs_arm_sock_marine_ofs_x = 0.0;
 user float rs_arm_sock_marine_ofs_y = 0.0;

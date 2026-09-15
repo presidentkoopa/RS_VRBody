@@ -578,20 +578,10 @@ class RS_VRBodyRig : EventHandler
 			return 0;
 		}
 
-		// hand.mdl: eighteen vertex frames, no manipulation set. It can say
-		// open, closed and the tweens between and nothing finer, so the fine
-		// poses collapse onto its closed grip. A hand that stops posing because
-		// one shape is missing looks broken; one that closes slightly wrong
-		// still looks like a hand.
-		switch (pose)
-		{
-			case RPOSE_OPEN:       return 5;
-			case RPOSE_REACH:      return 5;
-			case RPOSE_REACH_CLAW: return 3;
-			case RPOSE_POINT:      return 1;
-			case RPOSE_TRIGGER:    return 1;
-		}
-		return 2;
+		// The Quake hands (hand.mdl's eighteen frames) are out (owner, 2026-09-15), so every hand
+		// this rig draws is on the RS hand's skeleton and frames: any other style name -- one an
+		// old ini saved -- reads the same table.
+		return poseFrame("rs", pose);
 	}
 
 	// Blend state per hand, so fingers TRAVEL between shapes. Setting both ends
@@ -652,7 +642,7 @@ class RS_VRBodyRig : EventHandler
 				style = "rs";                                     // hand_left.iqm
 			else
 				style = cvs(hand == 0 ? "rs_body_style_handmain"
-				                      : "rs_body_style_handoff", "quake");
+				                      : "rs_body_style_handoff", "rs");
 
 			int pose = clamp(cvi(hand == 0 ? "rs_body_pose_main" : "rs_body_pose_off",
 			                     RPOSE_OPEN), 0, RPOSE_COUNT - 1);
@@ -714,8 +704,6 @@ class RS_VRBodyRig : EventHandler
 
 	private static Name wearClass(string style, int hand)
 	{
-		if (style ~== "quake") return (hand == 0) ? 'RS_HandWearQuakeMain' : 'RS_HandWearQuakeOff';
-		if (style ~== "open")  return (hand == 0) ? 'RS_HandWearOpenMain'  : 'RS_HandWearOpenOff';
 		if (style ~== "glove")  return (hand == 0) ? 'RS_HandWearGloveMain' : 'RS_HandWearGloveOff';
 		return '';
 	}
@@ -751,7 +739,7 @@ class RS_VRBodyRig : EventHandler
 
 	private void poseHand(Actor a, int hand, int pose)
 	{
-		int want = poseFrame(cvs("rs_body_style_" .. (hand == 0 ? "handmain" : "handoff"), "quake"), pose);
+		int want = poseFrame(cvs("rs_body_style_" .. (hand == 0 ? "handmain" : "handoff"), "rs"), pose);
 		if (want != blendTo[hand])
 		{
 			// Target changed mid-blend. Two frame numbers cannot express an
@@ -820,12 +808,8 @@ class RS_VRBodyRig : EventHandler
 		// HAND STYLES. Every one is a world actor on the controller, so they are
 		// interchangeable at runtime and the rig never learns which is in the
 		// slot. Adding another is a class, a MODELDEF block and one line here.
-		reg("handmain", "quake",  "RS_PartHandQuakeMain");
 		reg("handmain", "rs",     "RS_PartHandIQMMain");
 		reg("handoff",  "rs",     "RS_PartHandIQMOff");
-		reg("handoff",  "quake",  "RS_PartHandQuakeOff");
-		reg("handmain", "open",   "RS_PartHandOpenMain");
-		reg("handoff",  "open",   "RS_PartHandOpenOff");
 		reg("boot",     "heavy",  "RS_PartBootHeavy");
 		// The name this style had before it was renamed off the mod it came
 		// from. Kept because a style name lives in the player's ini, and
@@ -1147,7 +1131,7 @@ class RS_VRBodyRig : EventHandler
 	// touches the game -- see Engine docs/IK_STAGE1_IMPL_NOTES.md.
 	//
 	// LINT-REACH: rs_arm_rt rs_arm_lf
-	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_quake rs_arm_sock_marine
+	// LINT-SEATS: rs_arm_sock_rs rs_arm_sock_marine
 
 	// The look for an arm slot: the menu's base style, wearing the armour tint
 	// the torso would -- 100-149 green, 150+ blue (armourBand).
@@ -1202,11 +1186,9 @@ class RS_VRBodyRig : EventHandler
 		else
 		{
 			hd = parts[slot];
-			style = cvs(main ? "rs_body_style_handmain" : "rs_body_style_handoff", "quake");
+			style = cvs(main ? "rs_body_style_handmain" : "rs_body_style_handoff", "rs");
 		}
-		// The Quake fist and the open hand share one cuff; everything else wears
-		// the rigged hand's mesh (dressWorldHands).
-		if (style ~== "quake" || style ~== "open") sock = 1;
+		// Every hand wears the rigged hand's mesh now (the Quake hands are out), so sock stays 0.
 		return hd;
 	}
 
@@ -1312,12 +1294,7 @@ class RS_VRBodyRig : EventHandler
 		// HANDPALM and the fingers stay on the controller. It used to be a rigid stub
 		// 2.604 map units behind the palm, which poked through the gauntlet whenever
 		// the wrist bent. The Quake hands have no stub and keep their cuff.
-		if (sock == 1)
-		{
-			a.SetModelReachTarget(0, hd, (-6.90, 1.43, -1.10), (1, 0, 0), (0, 0, 0), 'rs_arm_sock_quake');
-			a.SetModelReachTargetJoint(0, 'None');
-		}
-		else if (marine)
+		if (marine)
 		{
 			// THE MARINE WRIST, MEASURED (tools/marine: wrist_socket.py, stub_reshape.py, arm_rim_tuck.py,
 			// wrist_flex.py; VR_BODY_QUEUE.md item 3). Its forearm is not centred on its own joint line, so
