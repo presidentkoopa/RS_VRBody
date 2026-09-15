@@ -44,7 +44,7 @@ user float rs_body_lookdown_start  = 30.0;
 
 // A standing see-through for the torso and vest, 0 solid to 0.9 nearly gone.
 // The look-down fade works on top of it.
-user float rs_body_torso_transparency = 0.0;
+user float rs_body_torso_transparency = 0.15;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 
 // ------------------------------------------------------------- the seats ---
 // Seven sliders and a selector saying which slot they drive, rather than seven
@@ -68,7 +68,7 @@ user float  rs_body_p_scale = 1.0;
 user float rs_bp_torso_ofs_x = 0.0;
 user float rs_bp_torso_ofs_y = 0.0;
 user float rs_bp_torso_ofs_z = 0.0;
-user float rs_bp_torso_yaw   = 0.0;
+user float rs_bp_torso_yaw   = -180.0;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 user float rs_bp_torso_pitch = 0.0;
 user float rs_bp_torso_roll  = 0.0;
 
@@ -86,12 +86,12 @@ user float rs_bp_holster_ofs_x = 0.0;
 user float rs_bp_holster_ofs_y = 0.0;
 user float rs_bp_holster_ofs_z = 0.0;
 user float rs_bp_holster_yaw   = 0.0;
-user float rs_bp_holster_pitch = 0.0;
+user float rs_bp_holster_pitch = 90.0;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 user float rs_bp_holster_roll  = 0.0;
 
-user float rs_bp_handmain_ofs_x = 0.0;
-user float rs_bp_handmain_ofs_y = 0.0;
-user float rs_bp_handmain_ofs_z = 0.0;
+user float rs_bp_handmain_ofs_x = 0.01;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
+user float rs_bp_handmain_ofs_y = -0.05;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
+user float rs_bp_handmain_ofs_z = -0.01;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 user float rs_bp_handmain_yaw   = 0.0;
 user float rs_bp_handmain_pitch = 0.0;
 user float rs_bp_handmain_roll  = 0.0;
@@ -103,10 +103,10 @@ user float rs_bp_handoff_yaw   = 0.0;
 user float rs_bp_handoff_pitch = 0.0;
 user float rs_bp_handoff_roll  = 0.0;
 
-user float rs_bp_boot_ofs_x = 0.0;
+user float rs_bp_boot_ofs_x = 1.75;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 user float rs_bp_boot_ofs_y = 0.0;
-user float rs_bp_boot_ofs_z = 0.0;
-user float rs_bp_boot_yaw   = 0.0;
+user float rs_bp_boot_ofs_z = 19.5;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
+user float rs_bp_boot_yaw   = -90.0;   // owner's tuned value, baked in 2026-09-15 (was 0.0)
 user float rs_bp_boot_pitch = 0.0;
 user float rs_bp_boot_roll  = 0.0;
 
@@ -116,18 +116,18 @@ user float rs_bp_boot_roll  = 0.0;
 // one pouch mesh, so a mesh that is the wrong size is ONE number here instead
 // of nine over there. Absent reads as 0 and the engine ignores it, so the
 // default of 1.0 is the neutral value, not a magic one.
-user float rs_bp_torso_scale   = 1.0;
+user float rs_bp_torso_scale   = 0.75;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
 user float rs_bp_torso_scale_x = 1.0;
 user float rs_bp_torso_scale_y = 1.0;
-user float rs_bp_torso_scale_z = 1.0;
+user float rs_bp_torso_scale_z = 1.4;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
 user float rs_bp_vest_scale   = 1.0;
 user float rs_bp_vest_scale_x = 1.0;
 user float rs_bp_vest_scale_y = 1.0;
 user float rs_bp_vest_scale_z = 1.0;
 user float rs_bp_holster_scale   = 1.0;
-user float rs_bp_holster_scale_x = 1.0;
-user float rs_bp_holster_scale_y = 1.0;
-user float rs_bp_holster_scale_z = 1.0;
+user float rs_bp_holster_scale_x = 0.5;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
+user float rs_bp_holster_scale_y = 0.7;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
+user float rs_bp_holster_scale_z = 0.4;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
 user float rs_bp_handmain_scale   = 1.0;
 user float rs_bp_handmain_scale_x = 1.0;
 user float rs_bp_handmain_scale_y = 1.0;
@@ -136,7 +136,7 @@ user float rs_bp_handoff_scale   = 1.0;
 user float rs_bp_handoff_scale_x = 1.0;
 user float rs_bp_handoff_scale_y = 1.0;
 user float rs_bp_handoff_scale_z = 1.0;
-user float rs_bp_boot_scale   = 1.0;
+user float rs_bp_boot_scale   = 0.5;   // owner's tuned value, baked in 2026-09-15 (was 1.0)
 user float rs_bp_boot_scale_x = 1.0;
 user float rs_bp_boot_scale_y = 1.0;
 user float rs_bp_boot_scale_z = 1.0;
@@ -167,8 +167,8 @@ user float rs_body_grab_radius = 12.0;
 // -------------------------------------------------------------- body yaw ---
 // How the body's heading follows your head. Holsters hang off the BODY; driven
 // straight off head yaw they orbit your face and blind reach is impossible.
-user float rs_body_yaw_deadzone = 65.0;   // free head turn before the hips move
-user float rs_body_yaw_follow   = 0.06;   // catch-up rate past the deadzone
+user float rs_body_yaw_deadzone = 25.0;   // free head turn before the hips move   // owner's tuned value, baked in 2026-09-15 (was 65.0)
+user float rs_body_yaw_follow   = 0.15;   // catch-up rate past the deadzone   // owner's tuned value, baked in 2026-09-15 (was 0.06)
 user float rs_body_yaw_maxpitch = 55.0;   // stop tracking past this look-down
 
 // Show where the code thinks your hands and holsters are: red main hand, blue
