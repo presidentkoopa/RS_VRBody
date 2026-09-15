@@ -1,0 +1,11 @@
+# Scripts only. Everything they write -- renders, posed meshes, fitted data, IQMs -- stays out:
+# much of it is built from Ermac's mesh (kept off GitHub) or the Slayer arms (Doom Eternal assets).
+out/
+out_*/
+__pycache__/
+*.npz
+*.iqm
+*.obj
+*.mtl
+*.png
+*.json
