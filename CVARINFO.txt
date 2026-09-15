@@ -14,6 +14,7 @@ user string rs_body_style_holster  = "quake";
 user string rs_body_style_handmain = "rs";
 user string rs_body_style_handoff  = "rs";
 user string rs_body_style_boot     = "heavy";
+user string rs_body_style_helmet   = "marine";   // "none" takes it off (2026-09-15)
 
 // ------------------------------------------------------------ the torso ---
 // rs_body_style_torso above is the BASE colour: what you wear with no armour.
@@ -140,6 +141,28 @@ user float rs_bp_boot_scale   = 0.5;   // owner's tuned value, baked in 2026-09-
 user float rs_bp_boot_scale_x = 1.0;
 user float rs_bp_boot_scale_y = 1.0;
 user float rs_bp_boot_scale_z = 1.0;
+
+// ------------------------------------------------------------ the helmet ---
+// Its FIT, read live by the renderer (MODELDEF PlacementCVars rs_bp_helmet). The mesh's
+// origin is already the eye and the rig seats it at your head, so these start at zero but
+// for the yaw that turns an MD3-axis mesh to face forward in the body frame -- the torso
+// needs the same -180.
+user float rs_bp_helmet_ofs_x   = 0.0;
+user float rs_bp_helmet_ofs_y   = 0.0;
+user float rs_bp_helmet_ofs_z   = 0.0;
+user float rs_bp_helmet_yaw     = -180.0;
+user float rs_bp_helmet_pitch   = 0.0;
+user float rs_bp_helmet_roll    = 0.0;
+user float rs_bp_helmet_scale   = 1.0;
+user float rs_bp_helmet_scale_x = 1.0;
+user float rs_bp_helmet_scale_y = 1.0;
+user float rs_bp_helmet_scale_z = 1.0;
+// HIDDEN FROM YOUR OWN EYES: fully faded inside near, fading out to far (map units from the
+// eye). The shell is under 8 units from the eye, so near 10 hides it; a mirror or a chase
+// camera is far away and sees it.
+user float rs_bp_helmet_eyefade_near = 10.0;
+user float rs_bp_helmet_eyefade_far  = 12.0;
+
 
 // ------------------------------------------------------------ hand pose ---
 // DEAD. SUPERSEDED BY rs_body_pose_main / rs_body_pose_off. DO NOT RE-WIRE.

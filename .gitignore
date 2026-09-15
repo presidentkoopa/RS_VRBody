@@ -16,3 +16,8 @@ models/slayer/*.png
 
 # Mockup renders: some show the Slayer arms (Doom Eternal assets). Disk only.
 renders/
+
+# THE HELMET is the Doom Eternal Classic Slayer's (the owner's download, 2026-09-15). Same rule as the
+# Slayer arms: meshes and textures stay on disk and in the local pk3, never pushed. PROVENANCE.md is tracked.
+models/helmet/*.obj
+models/helmet/*.png

@@ -41,6 +41,8 @@ enum RS_BodySlotId
 	// keeps its meaning.
 	RSLOT_ARM_R,
 	RSLOT_ARM_L,
+	// The helmet, on your head. Appended for the same reason as the arms.
+	RSLOT_HELMET,
 	RSLOT_COUNT
 }
 
@@ -204,6 +206,7 @@ class RS_VRBodyRig : EventHandler
 		if (s >= RSLOT_HOLSTER_0 && s <= RSLOT_HOLSTER_8) return "holster";
 		if (s == RSLOT_ARM_R)                            return "armright";
 		if (s == RSLOT_ARM_L)                            return "armleft";
+		if (s == RSLOT_HELMET)                           return "helmet";
 		return "boot";
 	}
 
@@ -235,6 +238,7 @@ class RS_VRBodyRig : EventHandler
 			case RSLOT_BOOT_R:     return "Boot right";
 			case RSLOT_ARM_R:      return "Arm right";
 			case RSLOT_ARM_L:      return "Arm left";
+			case RSLOT_HELMET:     return "Helmet";
 		}
 		return "?";
 	}
@@ -821,6 +825,8 @@ class RS_VRBodyRig : EventHandler
 		reg("armleft",  "forearm",       "RS_PartForearmSlayerL");
 		reg("armleft",  "forearmgreen",  "RS_PartForearmSlayerLGreen");
 		reg("armleft",  "forearmblue",   "RS_PartForearmSlayerLBlue");
+		// THE HELMET: the Doom Eternal Classic Slayer's (models/helmet/PROVENANCE.md).
+		reg("helmet",   "marine",        "RS_PartHelmetMarine");
 	}
 
 	private void ensure()
@@ -942,6 +948,8 @@ class RS_VRBodyRig : EventHandler
 		if (s >= RSLOT_HOLSTER_0 && s <= RSLOT_HOLSTER_8)
 			a.PlacementPrefix = holsterPrefix(s);
 
+		if (s == RSLOT_HELMET) { placeHelmet(pawn, a); return; }
+
 		int frame = slotFrame(s);
 		if (frame == RFRAME_ARM) { placeArm(pawn, a, s); return; }
 		if (frame != RFRAME_BODY)
@@ -1005,6 +1013,34 @@ class RS_VRBodyRig : EventHandler
 		// DRAWN AT DISPLAY RATE: last tic's heading turned toward this one, so a
 		// smooth turn does not tick at 35Hz. A snap turn stays a snap -- cleared
 		// after every write above, position and angles included.
+		a.FollowBodyYawInterp = true;
+		if (snapTurn) a.ClearInterpolation();
+	}
+
+	// ---- the helmet: on your head ----------------------------------------
+	//
+	// ON YOUR HEAD, NOT YOUR BODY. The mesh's origin is the eye, so the seat is no
+	// offset at all: the body frame's origin IS the headset (GetHmdTransform), and
+	// the helmet sits there at draw rate. Its heading is the HEAD's (HmdYaw, handed
+	// in as mode 2's heading, so the renderer's subtraction leaves only the fit yaw),
+	// and it nods and tilts with the head (HmdPitch / HmdRoll through the MODELDEF's
+	// USEACTORPITCH / USEACTORROLL).
+	//
+	// PITCH AND ROLL ARE TIC RATE. GetHmdTransform carries position and heading only
+	// -- by design, so holsters do not tip -- and the actor's own pitch and roll are
+	// written here once a tic, drawn interpolated. You never see it: the near-eye fade
+	// on rs_bp_helmet hides the helmet from your own eyes. A mirror or a chase camera
+	// sees the nod at 35Hz until the engine has a head frame with pitch and roll.
+	private void placeHelmet(PlayerPawn pawn, Actor a)
+	{
+		a.SetOrigin(pawn.HmdPos, true);
+		a.FollowBodyOfs  = (0, 0, 0);
+		a.FollowBodyYaw  = pawn.HmdYaw;
+		a.FollowBodyMode = 2;
+		a.angle = pawn.HmdYaw;
+		a.pitch = pawn.HmdPitch;
+		a.roll  = pawn.HmdRoll;
+		a.Scale = (1.0, 1.0);   // the size is the fit's _scale
 		a.FollowBodyYawInterp = true;
 		if (snapTurn) a.ClearInterpolation();
 	}

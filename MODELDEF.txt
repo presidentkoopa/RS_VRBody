@@ -78,6 +78,34 @@ Model RS_PartBootHeavy
 	FrameIndex BOOT A 0 0
 }
 
+// THE HELMET, worn on the head (body_rig.zs placeActor, RSLOT_HELMET). The Doom
+// Eternal Classic Slayer's helmet from the owner's download (models/helmet/
+// PROVENANCE.md): shell, visor glass and the dark interior, one OBJ each, already in
+// map units with the ORIGIN AT THE EYE -- so the part sits exactly where your head
+// is and turns about your eyes. The OBJ axes are x forward, y up, z right, which is
+// what an MD3 gives this engine, so its fit starts at the torso's yaw.
+//
+// HIDDEN FROM YOU, SEEN BY EVERYTHING ELSE. rs_bp_helmet_eyefade_near/far fades it
+// out by distance from the eye: the shell is under 8 units from your eyes, so it is
+// gone from your own view, while a mirror or a chase camera sees it whole.
+Model RS_PartHelmetMarine
+{
+	Path "models/helmet"
+	Model 0 "helmet.obj"
+	Skin 0 "helmet.png"
+	Model 1 "helmet_visor.obj"
+	Skin 1 "helmet_visor.png"
+	Model 2 "helmet_interior.obj"
+	Skin 2 "helmet_interior.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_helmet
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+	FrameIndex TRSO A 1 0
+	FrameIndex TRSO A 2 0
+}
+
 // ============================================================ psprite hands ==
 //
 // THESE ARE PSPRITES, NOT WORLD MODELS, and the difference is the entire reason

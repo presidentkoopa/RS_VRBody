@@ -96,6 +96,12 @@ OptionString "RS_BodyArmStyles"
 	"forearm", "Slayer forearm only"
 }
 
+OptionString "RS_BodyHelmetStyles"
+{
+	"none",    "None"
+	"marine",  "Doom marine (classic)"
+}
+
 // Quarter turns for an arm's fit Yaw. The facing is found on screen: pick the one
 // where the elbows bend down and back, then trim on the Yaw slider.
 OptionValue "RS_BodyArmFacing"
@@ -182,6 +188,7 @@ OptionMenu "RS_VRBodyMain"
 	Option    "Hand - main",       "rs_body_style_handmain", "RS_BodyHandStyles"
 	Option    "Hand - off",        "rs_body_style_handoff",  "RS_BodyHandStyles"
 	Option    "Boots",             "rs_body_style_boot",     "RS_BodyBootStyles"
+	Option    "Helmet",            "rs_body_style_helmet",   "RS_BodyHelmetStyles"
 	Option    "Arm - right",       "rs_body_style_armright", "RS_BodyArmStyles"
 	Option    "Arm - left",        "rs_body_style_armleft",  "RS_BodyArmStyles"
 	Submenu   "Arms -- fit, reach, calibrate (LIVE)", "RS_VRBodyArms"
@@ -292,6 +299,22 @@ OptionMenu "RS_VRBodyFits"
 	Slider    "  Depth",       "rs_bp_vest_scale_y", 0.2, 10, 0.1, 1
 	Slider    "  Height",      "rs_bp_vest_scale_z", 0.2, 10, 0.1, 1
 	StaticText "Yaw 180 if it is on backwards.", "DarkGray"
+	StaticText ""
+	StaticText "Helmet -- on your head, hidden from your own eyes", 1
+	Slider    "X",     "rs_bp_helmet_ofs_x", -16.0, 16.0, 0.05, 2
+	Slider    "Y",     "rs_bp_helmet_ofs_y", -16.0, 16.0, 0.05, 2
+	Slider    "Z",     "rs_bp_helmet_ofs_z", -16.0, 16.0, 0.05, 2
+	Slider    "Yaw",   "rs_bp_helmet_yaw",  -180.0,180.0, 1, 1
+	Slider    "Pitch", "rs_bp_helmet_pitch",-180.0,180.0, 1, 1
+	Slider    "Roll",  "rs_bp_helmet_roll", -180.0,180.0, 1, 1
+	Slider    "OVERALL SIZE",  "rs_bp_helmet_scale",   0.05, 4.0, 0.01, 3
+	Slider    "  Width",       "rs_bp_helmet_scale_x", 0.2, 10, 0.1, 1
+	Slider    "  Depth",       "rs_bp_helmet_scale_y", 0.2, 10, 0.1, 1
+	Slider    "  Height",      "rs_bp_helmet_scale_z", 0.2, 10, 0.1, 1
+	Slider    "Hidden inside (from the eye)",  "rs_bp_helmet_eyefade_near", 0.0, 30.0, 0.5, 1
+	Slider    "Fades out by",                  "rs_bp_helmet_eyefade_far",  0.5, 40.0, 0.5, 1
+	StaticText "Its centre is your eyes. To see it, set 'Hidden inside'", "DarkGray"
+	StaticText "to 0 and 'Fades out by' to 0.5, then put them back.", "DarkGray"
 	StaticText ""
 	StaticText "Holsters", 1
 	StaticText "Each has its own page now: VR Body > Holsters >", "DarkGray"

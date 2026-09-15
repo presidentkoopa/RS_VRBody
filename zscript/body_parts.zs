@@ -135,6 +135,13 @@ class RS_HandWearOpenOff   : RS_HandWearBase {}
 class RS_HandWearBareMain  : RS_HandWearBase {}
 class RS_HandWearBareOff   : RS_HandWearBase {}
 
+// ----------------------------------------------------------------- helmet ----
+//
+// Worn on the head (body_rig.zs placeActor, RSLOT_HELMET). The mesh's origin is the
+// eye, so the rig seats it at your head with no offset; the near-eye fade on its
+// placement prefix hides it from your own view. See the MODELDEF block.
+class RS_PartHelmetMarine : RS_BodyPart { States { Spawn: TRSO A -1; Stop; } }
+
 // ----------------------------------------------------------------- boot ----
 //
 // The mesh ships in this pk3. It used to be referenced out of RS_ModelSwapper,
