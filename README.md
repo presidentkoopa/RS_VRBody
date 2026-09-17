@@ -1,0 +1,1 @@
+player IK body for UZDXREMA engine. Two selectable bodies. Doom Eternal marine, and QuakeMutt. IK arms and hands. Hot-swappable torsos, arms, hands, boots. Player torsos change color / model to reflect armor and health status. Extensive customization options. 9 body holsters using Quake models. Also, UZDXREMA supports Quake 1 assets now, lol. 
