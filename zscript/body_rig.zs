@@ -1277,14 +1277,34 @@ class RS_VRBodyRig : EventHandler
 		{
 			bool right = (i == 0);
 			int  slot  = right ? RSLOT_ARM_R : RSLOT_ARM_L;
-			Name up    = right ? 'bip_upperArm_R' : 'bip_upperArm_L';
-			Name mid   = right ? 'bip_lowerArm_R' : 'bip_lowerArm_L';
-			Name wrist = right ? 'bip_hand_R'     : 'bip_hand_L';
-			Name tuning = right ? 'rs_armik_rt' : 'rs_armik_lf';
-			Vector3 outward  = right ? (-1, 0, 0) : (1, 0, 0);
-			// Measured on this skeleton at its 0.872 scale, by the same method as the
-			// Slayer's: index minus pinky off the forearm, in model order.
-			Vector3 twistRef = right ? (0.1929, 0.6177, -0.7624) : (-0.1929, 0.6177, -0.7624);
+
+			// DECLARED FIRST, ASSIGNED AFTER -- NOT DECLARED WITH A TERNARY.
+			//
+			// `Vector3 v = cond ? (a,b,c) : (d,e,f);` compiles and then aborts the VM
+			// the first time the function runs: "REGT_ADDROF not implemented for
+			// vectors". Initialising a vector local from a conditional makes the VM
+			// take the vector's address, which it cannot do. It cost a live abort on
+			// the owner's next load, past a clean -norun check, because a compile
+			// never calls the function. placeArm below has always used this two-step
+			// form, which is why it has always worked.
+			Name up, mid, wrist, tuning;
+			Vector3 outward, twistRef;
+			if (right)
+			{
+				up = 'bip_upperArm_R'; mid = 'bip_lowerArm_R'; wrist = 'bip_hand_R';
+				tuning = 'rs_armik_rt';
+				outward = (-1, 0, 0);
+				// Measured on this skeleton at its 0.872 scale, by the same method as
+				// the Slayer's: index minus pinky off the forearm, in model order.
+				twistRef = (0.1929, 0.6177, -0.7624);
+			}
+			else
+			{
+				up = 'bip_upperArm_L'; mid = 'bip_lowerArm_L'; wrist = 'bip_hand_L';
+				tuning = 'rs_armik_lf';
+				outward = (1, 0, 0);
+				twistRef = (-0.1929, 0.6177, -0.7624);
+			}
 
 			a.SetModelReachChain(i, up, mid, wrist, tuning);
 			a.SetModelReachFrame(i, outward, (0, -1, 0), (0, 0, 1), twistRef);
@@ -1293,6 +1313,21 @@ class RS_VRBodyRig : EventHandler
 			int sock;
 			Actor hd = armTarget(slot, sock);
 			if (!hd) { a.ClearModelReachChain(i); continue; }
+
+			// THE HAND WE REACH FOR MUST NOT ALSO BE DRAWN.
+			//
+			// This body has hands of its own, so RS_WorldHands' hand on the same
+			// controller would be a second hand inside the first. It still has to
+			// EXIST -- it is what holds, grabs and throws, and it is the actor this
+			// chain aims at -- so it is hidden, never destroyed. rs_handworld is not
+			// the switch for this: that one destroys the actors (handworld.zs
+			// Reconcile), which would take the grabbing with it AND delete the thing
+			// the arm is reaching for.
+			//
+			// Done from HERE rather than in RS_WorldHands because this is the side
+			// that knows a whole body is worn, and it needs no cvar written, no cvar
+			// declared in two packages, and no change to a mod that may be absent.
+			hideReachedHand(hd, true);
 			// NO SOCKET OFFSET. On the part rig this was where one mesh's wrist had
 			// to be measured onto another's; here the wrist joint and the hand are
 			// the same mesh, so the joint goes to the controller and that is all.
@@ -1305,21 +1340,55 @@ class RS_VRBodyRig : EventHandler
 		// pointing their surface skins at a transparent texture rather than by
 		// dropping the mesh, so the model stays one file and everyone ELSE still
 		// sees a marine with a head.
+		//
+		// Four calls rather than a local array: `string skins[4]` is C, not ZScript.
 		bool head = cvb("rs_body_whole_head", false);
 		if (head != wholeHeadShown)
 		{
 			wholeHeadShown = head;
-			string skins[4];
-			skins[0] = head ? "doomslayer_hair.png"  : "invisible.png";
-			skins[1] = head ? "doomslayer_head.png"  : "invisible.png";
-			skins[2] = head ? "doomslayer_teeth.png" : "invisible.png";
-			skins[3] = head ? "doomslayer_eyes.png"  : "invisible.png";
-			for (int k = 0; k < 4; ++k)
-				a.A_ChangeModel("", 0, "", "", 11 + k, "models/marine", skins[k],
-				                CMDL_USESURFACESKIN, 0, 0, "", "");
+			headSkin(a, 11, head ? "doomslayer_hair.png"  : "invisible.png");
+			headSkin(a, 12, head ? "doomslayer_head.png"  : "invisible.png");
+			headSkin(a, 13, head ? "doomslayer_teeth.png" : "invisible.png");
+			headSkin(a, 14, head ? "doomslayer_eyes.png"  : "invisible.png");
 		}
 	}
+
+	// Hidden, not destroyed -- and put back exactly as it was when the whole body
+	// is switched off. Alpha and RenderStyle only: nothing else about the hand is
+	// touched, so it keeps holding whatever it was holding.
+	private void hideReachedHand(Actor hd, bool hide)
+	{
+		if (!hd) return;
+		if (hide)
+		{
+			hd.A_SetRenderStyle(0.0, STYLE_None);
+		}
+		else
+		{
+			hd.A_SetRenderStyle(1.0, STYLE_Normal);
+		}
+	}
+
+	// THE HANDS COME BACK when the whole body is switched off mid-play. Without
+	// this, turning it off leaves you with the part rig and two invisible hands.
+	private void showReachedHands()
+	{
+		for (int i = 0; i < 2; ++i)
+		{
+			int sock;
+			Actor hd = armTarget((i == 0) ? RSLOT_ARM_R : RSLOT_ARM_L, sock);
+			hideReachedHand(hd, false);
+		}
+	}
+
+	private void headSkin(Actor a, int surface, string skin)
+	{
+		a.A_ChangeModel("", 0, "", "", surface, "models/marine", skin,
+		                CMDL_USESURFACESKIN, 0, 0, "", "");
+	}
+
 	private bool wholeHeadShown;
+	private bool wholeWas;
 
 	private void placeArm(PlayerPawn pawn, Actor a, int s)
 	{
@@ -1897,7 +1966,11 @@ class RS_VRBodyRig : EventHandler
 			// draws its own hands; the arms still need an actor on each controller
 			// to reach, and keeping the slot filled is what lets armTarget, the
 			// swap and the sockets work here unchanged.
-			if (s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF) want = "RS_BodyHandAnchor";
+			// ...but only when nothing else already owns that hand. RS_WorldHands
+			// owning the hands is the normal case and its hand IS the actor to reach
+			// for, so an anchor on top would be a second thing on the controller.
+			if ((s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF) && !handSlotIsForeign(s))
+				want = "RS_BodyHandAnchor";
 			else if (s != RSLOT_BODY && wholeBodyReplaces(s)) want = "";
 		}
 		else if (s == RSLOT_BODY) want = "";
@@ -2176,6 +2249,13 @@ class RS_VRBodyRig : EventHandler
 		// rig had a body seat the other half was still on the tic rate and the two
 		// came apart -- which is what "the models never stayed in the holsters"
 		// actually was.
+		// SWITCHING THE WHOLE BODY OFF MID-PLAY GIVES THE HANDS BACK. The body hides
+		// the hand it reaches for; without this you would drop back to the part rig
+		// and be left holding two invisible hands. Checked on the edge only.
+		bool wholeNow = cvb("rs_body_whole", true);
+		if (wholeWas && !wholeNow) showReachedHands();
+		wholeWas = wholeNow;
+
 		for (int s = 0; s < RSLOT_COUNT; ++s)
 		{
 			syncSlotPart(pawn, s);
