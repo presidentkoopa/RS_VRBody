@@ -43,11 +43,6 @@ enum RS_BodySlotId
 	RSLOT_ARM_L,
 	// The helmet, on your head. Appended for the same reason as the arms.
 	RSLOT_HELMET,
-	// THE WHOLE BODY -- one rigged model that is the torso, both arms, both hands,
-	// the legs and the helmet at once. It does not sit alongside the parts above:
-	// with rs_body_whole on it REPLACES them and they are left empty. Appended,
-	// like the arms and the helmet, so no saved slot index shifts under a profile.
-	RSLOT_BODY,
 	RSLOT_COUNT
 }
 
@@ -212,18 +207,7 @@ class RS_VRBodyRig : EventHandler
 		if (s == RSLOT_ARM_R)                            return "armright";
 		if (s == RSLOT_ARM_L)                            return "armleft";
 		if (s == RSLOT_HELMET)                           return "helmet";
-		if (s == RSLOT_BODY)                             return "body";
 		return "boot";
-	}
-
-	// WHICH SLOTS A WHOLE BODY MAKES REDUNDANT. Everything the one mesh already
-	// contains: the torso, both arms, both hands, both boots and the helmet.
-	// Holsters and the pouch are deliberately absent -- see syncSlotPart.
-	static bool wholeBodyReplaces(int s)
-	{
-		return s == RSLOT_TORSO || s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF
-		    || s == RSLOT_ARM_R || s == RSLOT_ARM_L || s == RSLOT_HELMET
-		    || s == RSLOT_BOOT_L || s == RSLOT_BOOT_R;
 	}
 
 	static int slotFrame(int s)
@@ -255,7 +239,6 @@ class RS_VRBodyRig : EventHandler
 			case RSLOT_ARM_R:      return "Arm right";
 			case RSLOT_ARM_L:      return "Arm left";
 			case RSLOT_HELMET:     return "Helmet";
-			case RSLOT_BODY:       return "Body (whole)";
 		}
 		return "?";
 	}
@@ -287,10 +270,6 @@ class RS_VRBodyRig : EventHandler
 			case RSLOT_HOLSTER_8:  f = -4; sd =   0; u = -18.0; p = 90;    break;
 			case RSLOT_BOOT_L:     f =  0; sd =  -6; u = -46.0;            break;
 			case RSLOT_BOOT_R:     f =  0; sd =   6; u = -46.0;            break;
-			// A WHOLE BODY IS SEATED FROM THE FLOOR, not from the neck: his own
-			// origin is between his boots and he stands 64.7 units. A starting
-			// point to drag from, as every seat here is.
-			case RSLOT_BODY:       f =  0; sd =   0; u = -50.0;            break;
 		}
 	}
 
@@ -808,13 +787,6 @@ class RS_VRBodyRig : EventHandler
 
 	override void OnRegister()
 	{
-		// WHOLE BODIES. One line per character, and that is the whole cost of
-		// adding one -- no torso style, no arm pair, no hand variant, no pairing.
-		reg("body",     "marine", "RS_PartBodyMarine");
-		// The invisible things the whole body's arms reach for -- see RS_BodyHandAnchor.
-		reg("handmain", "anchor", "RS_BodyHandAnchor");
-		reg("handoff",  "anchor", "RS_BodyHandAnchor");
-
 		reg("torso",    "quake",  "RS_PartTorsoQuake");
 
 		// THE SAME MESH WEARING A DIFFERENT SKIN. See the note in MODELDEF:
@@ -995,15 +967,6 @@ class RS_VRBodyRig : EventHandler
 
 		if (s == RSLOT_HELMET) { placeHelmet(pawn, a); return; }
 
-		// HEIGHT IS THE SEAT'S SCALE, not a second writer on the actor. The fit's
-		// own _scale belongs to the mesh and the owner's slider; this is how tall
-		// HE is against how tall YOU are, which is a property of the slot.
-		if (s == RSLOT_BODY)
-		{
-			double h = cvf("rs_body_whole_height", 1.0);
-			sScale[RSLOT_BODY] = (h > 0.05) ? h : 1.0;
-		}
-
 		// The marine torso, and the breath over it, hang on the shoulder line with the marine arms.
 		if (s == RSLOT_TORSO)
 		{
@@ -1070,11 +1033,6 @@ class RS_VRBodyRig : EventHandler
 
 		double sc = sScale[s];
 		a.Scale = (sc, sc);
-
-		// A WHOLE BODY DRIVES ITS OWN ARMS. Two chains on ONE actor rather than an
-		// arm actor each: the engine allows four per actor, and the hands at the end
-		// of them are already part of this mesh.
-		if (s == RSLOT_BODY) wholeBody(pawn, a);
 
 		// DRAWN AT DISPLAY RATE: last tic's heading turned toward this one, so a
 		// smooth turn does not tick at 35Hz. A snap turn stays a snap -- cleared
@@ -1263,63 +1221,6 @@ class RS_VRBodyRig : EventHandler
 		double u  = sUp[RSLOT_TORSO] + mz * sc * sz + cvf("rs_body_arm_trim_up", 0.0);
 		return f, sd, u;
 	}
-
-	// THE WHOLE BODY'S TWO ARMS, AND ITS HEAD.
-	//
-	// The part rig needed, per arm: a separate actor, a shoulder seat, a wrist
-	// socket measured per pairing, a reshaped hand stub and a decision about which
-	// hand this arm reaches. None of that is here. The chain runs down joints this
-	// mesh already owns, and it ends at a hand that is already attached -- so the
-	// target is simply the controller, with no socket to measure and no seam.
-	private void wholeBody(PlayerPawn pawn, Actor a)
-	{
-		for (int i = 0; i < 2; ++i)
-		{
-			bool right = (i == 0);
-			int  slot  = right ? RSLOT_ARM_R : RSLOT_ARM_L;
-			Name up    = right ? 'bip_upperArm_R' : 'bip_upperArm_L';
-			Name mid   = right ? 'bip_lowerArm_R' : 'bip_lowerArm_L';
-			Name wrist = right ? 'bip_hand_R'     : 'bip_hand_L';
-			Name tuning = right ? 'rs_armik_rt' : 'rs_armik_lf';
-			Vector3 outward  = right ? (-1, 0, 0) : (1, 0, 0);
-			// Measured on this skeleton at its 0.872 scale, by the same method as the
-			// Slayer's: index minus pinky off the forearm, in model order.
-			Vector3 twistRef = right ? (0.1929, 0.6177, -0.7624) : (-0.1929, 0.6177, -0.7624);
-
-			a.SetModelReachChain(i, up, mid, wrist, tuning);
-			a.SetModelReachFrame(i, outward, (0, -1, 0), (0, 0, 1), twistRef);
-			a.SetModelReachFollowJoint(i, 'None');
-
-			int sock;
-			Actor hd = armTarget(slot, sock);
-			if (!hd) { a.ClearModelReachChain(i); continue; }
-			// NO SOCKET OFFSET. On the part rig this was where one mesh's wrist had
-			// to be measured onto another's; here the wrist joint and the hand are
-			// the same mesh, so the joint goes to the controller and that is all.
-			a.SetModelReachTarget(i, hd, (0, 0, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_whole');
-		}
-
-		// YOUR OWN HEAD, OFF BY DEFAULT, BECAUSE YOU ARE INSIDE IT.
-		//
-		// Surfaces 11..14 are the head group -- hair, face, teeth, eyes. Hidden by
-		// pointing their surface skins at a transparent texture rather than by
-		// dropping the mesh, so the model stays one file and everyone ELSE still
-		// sees a marine with a head.
-		bool head = cvb("rs_body_whole_head", false);
-		if (head != wholeHeadShown)
-		{
-			wholeHeadShown = head;
-			string skins[4];
-			skins[0] = head ? "doomslayer_hair.png"  : "invisible.png";
-			skins[1] = head ? "doomslayer_head.png"  : "invisible.png";
-			skins[2] = head ? "doomslayer_teeth.png" : "invisible.png";
-			skins[3] = head ? "doomslayer_eyes.png"  : "invisible.png";
-			for (int k = 0; k < 4; ++k)
-				a.A_ChangeModel("", 0, "", "", 11 + k, "models/marine", skins[k],
-				                CMDL_USESURFACESKIN, 0, 0, "", "");
-		}
-	}
-	private bool wholeHeadShown;
 
 	private void placeArm(PlayerPawn pawn, Actor a, int s)
 	{
@@ -1875,32 +1776,10 @@ class RS_VRBodyRig : EventHandler
 		string style;
 		if (s == RSLOT_TORSO)                  style = torsoStyle(pawn);
 		else if (slotFrame(s) == RFRAME_ARM)   style = armStyle(pawn, s);
-		else if (s == RSLOT_BODY)              style = cvs("rs_body_whole_style", "marine");
 		else                                   style = cvs("rs_body_style_" .. kind, "");
 		string want  = lookup(kind, style);
 
 		if (!cvb("rs_body_enabled", true)) want = "";
-
-		// THE WHOLE BODY AND THE PART RIG ARE ALTERNATIVES, NEVER BOTH.
-		//
-		// Wearing both would draw two torsos and four arms, and the second set
-		// would be the one you notice. So the gate is here, at the single place a
-		// slot decides what it holds, rather than scattered through placement:
-		// one cvar chooses which rig you are running and the other empties.
-		//
-		// HOLSTERS ARE NOT PART OF THIS. They hang off your body whichever rig
-		// draws it, the owner has nine of them tuned, and nothing below touches
-		// them -- only the slots the whole body actually replaces.
-		if (cvb("rs_body_whole", true))
-		{
-			// The hands are not emptied, they are made INVISIBLE ANCHORS. The body
-			// draws its own hands; the arms still need an actor on each controller
-			// to reach, and keeping the slot filled is what lets armTarget, the
-			// swap and the sockets work here unchanged.
-			if (s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF) want = "RS_BodyHandAnchor";
-			else if (s != RSLOT_BODY && wholeBodyReplaces(s)) want = "";
-		}
-		else if (s == RSLOT_BODY) want = "";
 		if (handSlotIsForeign(s))          want = "";
 		// AN ARM NEEDS A TORSO TO HANG FROM AND A HAND ACTOR TO REACH. Psprite
 		// hands have no model the engine can put a wrist on, so with none there is

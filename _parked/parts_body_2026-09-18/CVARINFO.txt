@@ -623,36 +623,3 @@ user float rs_body_yaw_hands_low      = 30.0;   // a hand this far below the hea
 user float rs_body_yaw_hands_deadzone = 10.0;
 user float rs_body_yaw_hands_follow   = 0.25;
 user float rs_body_yaw_hands_maxstep  = 0.0;    // degrees per tic while the hands steer, 0 off
-
-// ============================================================================
-// THE WHOLE BODY. Everything the old part rig needed per torso, per arm pair,
-// per hand and per pairing collapses to this: one fit for the mesh, one height,
-// one arm length, and whether your own head is drawn.
-// ============================================================================
-server bool  rs_body_whole        = true;    // the whole body replaces the part rig
-user   float rs_body_whole_height = 1.0;     // scales him to you; 1.0 is his own 64.7 units
-user   bool  rs_body_whole_head   = false;   // draw your own head in first person
-user   string rs_body_whole_style = "marine";
-
-// The mesh fit, read live by the renderer (MODELDEF PlacementCVars rs_bp_marinebody).
-user float rs_bp_marinebody_ofs_x   = 0.0;
-user float rs_bp_marinebody_ofs_y   = 0.0;
-user float rs_bp_marinebody_ofs_z   = 0.0;
-user float rs_bp_marinebody_yaw     = 0.0;
-user float rs_bp_marinebody_pitch   = 0.0;
-user float rs_bp_marinebody_roll    = 0.0;
-user float rs_bp_marinebody_scale   = 1.0;
-user float rs_bp_marinebody_scale_x = 1.0;
-user float rs_bp_marinebody_scale_y = 1.0;
-user float rs_bp_marinebody_scale_z = 1.0;
-
-// The whole body's wrist trim. There is no socket to measure -- the wrist joint and
-// the hand are the same mesh -- so these start at zero and exist only so the owner
-// can nudge where the hand meets the controller.
-user float rs_arm_sock_whole_ofs_x = 0.0;
-user float rs_arm_sock_whole_ofs_y = 0.0;
-user float rs_arm_sock_whole_ofs_z = 0.0;
-user float rs_arm_sock_whole_yaw   = 0.0;
-user float rs_arm_sock_whole_pitch = 0.0;
-user float rs_arm_sock_whole_roll  = 0.0;
-user float rs_arm_sock_whole_scale = 1.0;

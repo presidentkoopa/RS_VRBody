@@ -162,88 +162,26 @@ OptionMenu "RS_VRBodyHolsters"
 OptionMenu "RS_VRBodyMain"
 {
 	Title "VR Body"
-	StaticText "One whole rigged body, drawn at headset rate", 1
-	StaticText "rather than at the 35Hz tic.", 1
+	StaticText "A body made of interchangeable parts, drawn at", 1
+	StaticText "headset rate rather than at the 35Hz tic.", 1
 	StaticText ""
-	Option    "Body",               "rs_body_enabled",     "OnOff"
-	Option    "Whole body",         "rs_body_whole",       "OnOff"
-	Option    "Who",                "rs_body_whole_style", "RS_BodyWholeStyles"
-	StaticText ""
-	StaticText "Fit him to you", 1
-	Slider    "Height",             "rs_body_whole_height", 0.75, 1.30, 0.01, 2
-	Option    "Draw your own head", "rs_body_whole_head",   "YesNo"
-	StaticText "His hands are his own, so there is no wrist to line up", "DarkGray"
-	StaticText "and no arm pairing to get wrong. Height and arm length", "DarkGray"
-	StaticText "is the calibration that exists so far.", "DarkGray"
-	StaticText "Your own head is off because you are inside it.", "DarkGray"
-	StaticText ""
-	StaticText "How he reads", 1
-	Option    "Breathe red near death",   "rs_body_breathe",        "YesNo"
-	Slider    "  Starts below health",    "rs_body_breathe_below",  5, 100, 5, 0
-	Option    "Fade when looking down",   "rs_body_lookdown_fade",  "YesNo"
-	Slider    "  Fade to",                "rs_body_lookdown_alpha", 0.0, 1.0, 0.05, 2
-	Slider    "  Starts at degrees down", "rs_body_lookdown_start", 0, 80, 5, 0
-	StaticText ""
-	StaticText "Body heading -- how the hips follow the head.", 1
-	StaticText "Higher deadzone = holsters stay put while you look.", 1
-	Slider    "Neck deadzone",      "rs_body_yaw_deadzone", 0, 90, 5, 0
-	Slider    "Catch-up rate",      "rs_body_yaw_follow",   0.02, 1.0, 0.01, 2
-	Slider    "Stop tracking past", "rs_body_yaw_maxpitch", 20, 89, 1, 0
-	StaticText ""
-	StaticText "Both hands out in front turn the body toward them.", 1
-	Slider    "Follow your hands",          "rs_body_yaw_hands",          0.0, 1.0, 0.05, 2
-	Slider    "  Hands deadzone",           "rs_body_yaw_hands_deadzone", 0, 45, 1, 0
-	Slider    "  Hands catch-up rate",      "rs_body_yaw_hands_follow",   0.02, 1.0, 0.01, 2
-	Slider    "  Max turn per tic (0 off)", "rs_body_yaw_hands_maxstep",  0, 20, 0.5, 1
-	StaticText ""
-	Submenu   "Fit the mesh -- LIVE",            "RS_VRBodyWholeFit"
-	Submenu   "Fit the body to you",             "RS_VRBodySeats"
-	Submenu   "Holsters -- store and draw",      "RS_VRBodyHolsters"
-	Submenu   "The old part rig (parked)",       "RS_VRBodyParts"
-}
-
-// THE MESH'S OWN FIT, read live by the renderer. One set for one body, where the
-// part rig needed one per torso, per arm pair, per hand and per pairing.
-OptionMenu "RS_VRBodyWholeFit"
-{
-	Title "Whole body -- fit the mesh"
-	StaticText "Moves the MESH inside its slot. Live, menu open.", 1
-	StaticText ""
-	Slider "Forward",  "rs_bp_marinebody_ofs_x", -32, 32, 0.25, 2
-	Slider "Side",     "rs_bp_marinebody_ofs_y", -32, 32, 0.25, 2
-	Slider "Up",       "rs_bp_marinebody_ofs_z", -64, 64, 0.25, 2
-	Slider "Yaw",      "rs_bp_marinebody_yaw",   -180, 180, 1, 0
-	Slider "Pitch",    "rs_bp_marinebody_pitch", -180, 180, 1, 0
-	Slider "Roll",     "rs_bp_marinebody_roll",  -180, 180, 1, 0
-	Slider "Size",     "rs_bp_marinebody_scale",  0.25, 3.0, 0.01, 2
-	Slider "  Size X", "rs_bp_marinebody_scale_x", 0.25, 3.0, 0.01, 2
-	Slider "  Size Y", "rs_bp_marinebody_scale_y", 0.25, 3.0, 0.01, 2
-	Slider "  Size Z", "rs_bp_marinebody_scale_z", 0.25, 3.0, 0.01, 2
-	StaticText ""
-	StaticText "Where his hand meets your controller.", 1
-	Slider "Wrist forward", "rs_arm_sock_whole_ofs_x", -4, 4, 0.05, 2
-	Slider "Wrist side",    "rs_arm_sock_whole_ofs_y", -4, 4, 0.05, 2
-	Slider "Wrist up",      "rs_arm_sock_whole_ofs_z", -4, 4, 0.05, 2
-	Slider "Wrist yaw",     "rs_arm_sock_whole_yaw",   -180, 180, 1, 0
-	Slider "Wrist pitch",   "rs_arm_sock_whole_pitch", -180, 180, 1, 0
-	Slider "Wrist roll",    "rs_arm_sock_whole_roll",  -180, 180, 1, 0
-}
-
-// THE PART RIG, PARKED. Kept reachable rather than deleted: the owner's tuning
-// for it is still in the ini, and turning "Whole body" off brings it all back
-// exactly as it was. The source snapshot is in _parked/parts_body_2026-09-18.
-OptionMenu "RS_VRBodyParts"
-{
-	Title "VR Body -- the old part rig"
-	StaticText "A body assembled from separate torso, arms, hands,", 1
-	StaticText "boots and helmet. Replaced by the whole body; these", 1
-	StaticText "rows only do anything with Whole body turned OFF.", 1
+	Option    "Body",              "rs_body_enabled", "OnOff"
 	StaticText ""
 	StaticText "Torso", 1
-	Option    "Colour",                      "rs_body_style_torso",        "RS_BodyTorsoStyles"
+	Option    "Colour",                      "rs_body_style_torso",     "RS_BodyTorsoStyles"
 	Slider    "Transparency",                "rs_body_torso_transparency", 0.0, 0.9, 0.05, 2
-	Option    "Armour changes the colour",   "rs_body_armor_color",        "YesNo"
-	Option    "Wear the armour you pick up", "rs_body_armor_voxel",        "YesNo"
+	Option    "Armour changes the colour",   "rs_body_armor_color",     "YesNo"
+	Option    "Wear the armour you pick up", "rs_body_armor_voxel",     "YesNo"
+	Option    "Breathe red near death",      "rs_body_breathe",         "YesNo"
+	Slider    "  Starts below health",       "rs_body_breathe_below",   5, 100, 5, 0
+	Option    "Fade when looking down",      "rs_body_lookdown_fade",   "YesNo"
+	Slider    "  Fade to",                   "rs_body_lookdown_alpha",  0.0, 1.0, 0.05, 2
+	Slider    "  Starts at degrees down",    "rs_body_lookdown_start",  0, 80, 5, 0
+	StaticText "Colour is your torso under 100 armour; 100-149", "DarkGray"
+	StaticText "turns it green, 150+ blue. Picking up a suit puts", "DarkGray"
+	StaticText "its armour on you until you drop below that suit.", "DarkGray"
+	StaticText "Near death it breathes red, faster the closer you are.", "DarkGray"
+	StaticText "Looking down fades it so you can see your feet.", "DarkGray"
 	StaticText ""
 	StaticText "Parts", 1
 	Option    "Holsters",          "rs_body_style_holster",  "RS_BodyHolsterStyles"
@@ -254,19 +192,40 @@ OptionMenu "RS_VRBodyParts"
 	Option    "Arm - right",       "rs_body_style_armright", "RS_BodyArmStyles"
 	Option    "Arm - left",        "rs_body_style_armleft",  "RS_BodyArmStyles"
 	Submenu   "Arms -- fit, reach, calibrate (LIVE)", "RS_VRBodyArms"
+	Submenu   "Holsters -- store and draw", "RS_VRBodyHolsters"
 	StaticText ""
 	Option    "Let RS_WorldHands own the hands", "rs_body_defer_hands", "OnOff"
+	StaticText "On: if RS_WorldHands is loaded, its hands are used -- one", "DarkGray"
+	StaticText "hand per controller, able to grab, hold and throw -- and they", "DarkGray"
+	StaticText "WEAR the two styles above. Quake hands sit on their own", "DarkGray"
+	StaticText "sliders; the pose below still drives them either way.", "DarkGray"
+	StaticText "Off with both loaded gives you TWO hands per controller.", "DarkGray"
 	StaticText ""
 	StaticText "Hand pose", 1
 	Option    "Main hand", "rs_body_pose_main", "RS_BodyPoseVals"
 	Option    "Off hand",  "rs_body_pose_off",  "RS_BodyPoseVals"
+	StaticText "What the hand is DOING. Each hand mesh answers in its own", "DarkGray"
+	StaticText "frames, so a pose looks right on any of them. Open means", "DarkGray"
+	StaticText "'nothing to say' and lets the controllers drive the hand.", "DarkGray"
+	StaticText ""
+	StaticText ""
+	StaticText "Body heading -- how the hips follow the head.", 1
+	StaticText "Higher deadzone = holsters stay put while you look.", 1
+	Slider    "Neck deadzone",      "rs_body_yaw_deadzone", 0, 90, 5, 0
+	Slider    "Catch-up rate",      "rs_body_yaw_follow",   0.02, 1.0, 0.01, 2
+	Slider    "Stop tracking past", "rs_body_yaw_maxpitch", 20, 89, 1, 0
+	StaticText ""
+	StaticText "Both hands out in front turn the body toward them.", 1
+	Slider    "Follow your hands",         "rs_body_yaw_hands",          0.0, 1.0, 0.05, 2
+	Slider    "  Hands deadzone",          "rs_body_yaw_hands_deadzone", 0, 45, 1, 0
+	Slider    "  Hands catch-up rate",     "rs_body_yaw_hands_follow",   0.02, 1.0, 0.01, 2
+	Slider    "  Max turn per tic (0 off)","rs_body_yaw_hands_maxstep",  0, 20, 0.5, 1
+	StaticText "0 = the head alone decides, as before. With a hand down", "DarkGray"
+	StaticText "the head decides. Holsters follow the body, so they", "DarkGray"
+	StaticText "follow your aim too.", "DarkGray"
 	StaticText ""
 	Submenu   "Fit a mesh to its slot -- LIVE", "RS_VRBodyFits"
-}
-
-OptionString "RS_BodyWholeStyles"
-{
-	"marine", "Doom marine (Eternal)"
+	Submenu   "Fit the body to you",            "RS_VRBodySeats"
 }
 
 OptionMenu "RS_VRBodySeats"
