@@ -5,11 +5,6 @@ the Dark Ages Praetor. IK arms and hands. Hot-swappable torsos, arms, hands, boo
 torsos change colour / model to reflect armour and health status. Extensive customization
 options. 9 body holsters using Quake models. Also, UZDXREMA supports Quake 1 assets now, lol.
 
-![The two rigs](docs/rig.png)
-
-*Flat-shaded and untextured on purpose: the meshes and textures stay off this remote (see
-Assets). Yellow is the four reach chains the engine solver drives; blue is the spine.*
-
 ## What the rig does
 
 **Arms follow your controllers.** Two engine reach chains per body, aimed at the

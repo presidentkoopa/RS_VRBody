@@ -37,3 +37,8 @@ models/marine/*.png
 # next `git add -A` onto a PUBLIC remote. Disk and local pk3 only; PROVENANCE.md is tracked.
 models/praetor/*.iqm
 models/praetor/*.png
+
+# RENDERS OF THE BODIES ARE THE BODIES. `renders/` was already ignored for exactly this
+# reason -- "some show the Slayer arms (Doom Eternal assets)" -- and an untextured render
+# is still their geometry and their silhouette on a public remote. docs/ is not a loophole.
+docs/*.png
