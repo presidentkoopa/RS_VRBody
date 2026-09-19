@@ -42,3 +42,10 @@ models/praetor/*.png
 # reason -- "some show the Slayer arms (Doom Eternal assets)" -- and an untextured render
 # is still their geometry and their silhouette on a public remote. docs/ is not a loophole.
 docs/*.png
+
+# THE RIG RENDER IS THE EXCEPTION, AT THE OWNER'S REPEATED INSTRUCTION (2026-09-19, three
+# times: "UPLOAD RENDERS TO README"). It is the one image this repo is meant to have. It is
+# flat grey with the chains drawn on -- the joints, the proportions the seats are measured
+# against, our own work -- which is exactly what render_rig.py was written to produce and
+# why it exists. Narrow on purpose: this ONE file, not docs/ and not renders/.
+!docs/rigs.png

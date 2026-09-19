@@ -5,6 +5,13 @@ the Dark Ages Praetor. IK arms and hands. Hot-swappable torsos, arms, hands, boo
 torsos change colour / model to reflect armour and health status. Extensive customization
 options. 9 body holsters using Quake models. Also, UZDXREMA supports Quake 1 assets now, lol.
 
+![The two rigs and the four reach chains](docs/rigs.png)
+
+*Both bodies, flat-shaded, with the four reach chains the solver drives in yellow and the
+spine in blue. Our own geometry pass — no skins, no textures, no Blender: the renderer
+(`tools/marine/render_rig.py`) reads the IQM and rasterises it, so it depends on nothing but
+the files. The meshes themselves are Doom Eternal rips and never leave the disk.*
+
 ## What the rig does
 
 **Arms follow your controllers.** Two engine reach chains per body, aimed at the

@@ -24,10 +24,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Its hands were already their own bodyparts in the source so they were never cut off --
 # they simply live beside the body. The marine is the opposite: its hands are IN
 # marine_whole.iqm, attached, one mesh. Render a body by loading everything that body is.
-MARINE = [r"E:\DOOMWork\RS_VRBody\models\marine\marine_whole.iqm"]
-PRAETOR = [r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_body.iqm",
-           r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_rt.iqm",
-           r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_lf.iqm"]
+#
+# AND AN EXTRA PART IS NOT IN THE BODY'S SPACE, which drew his hands AT HIS FEET. Those
+# files were re-originned at the palm when they were cut out: the body puts R_Hand at
+# (-19.45, -4.42, 40.94) and the hand file puts the SAME joint at (1.38, 1.12, 0.94).
+# They share the whole 83-joint skeleton, so the joint they have in common IS the
+# alignment -- each extra names one and is moved by the difference. Measured off the
+# files, not an offset fitted by eye.
+MARINE = [(r"E:\DOOMWork\RS_VRBody\models\marine\marine_whole.iqm", None)]
+PRAETOR = [(r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_body.iqm", None),
+           (r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_rt.iqm", "ValveBiped.Bip01_R_Hand"),
+           (r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_lf.iqm", "ValveBiped.Bip01_L_Hand")]
 OUT = sys.argv[1] if len(sys.argv) > 1 else "rig.png"
 
 # The joints each reach chain drives, per rig family. These are the arms and legs the
@@ -94,21 +101,32 @@ def load(path):
 
 def render(paths, style, W, H, pad=28):
     if isinstance(paths, str):
-        paths = [paths]
-    P, N, T, names, J = load(paths[0])
+        paths = [(paths, None)]
+    P, N, T, names, J = load(paths[0][0])
     if N is None:
         N = np.zeros_like(P)
+    idx = {n: i for i, n in enumerate(names)}
     # Extra parts merge into the same buffers, their triangles re-indexed past what is
     # already there. Joints come from the first file only -- that is the one carrying the
     # skeleton the chains are drawn from.
-    for extra in paths[1:]:
-        P2, N2, T2, _n2, _j2 = load(extra)
+    #
+    # ALIGNED BY A SHARED JOINT when one is named: a part cut out of the body was
+    # re-originned, so its vertices are in ITS space and not the body's. Both files carry
+    # the same skeleton, so the same joint in both is the measurement.
+    for extra, joinAt in paths[1:]:
+        P2, N2, T2, n2, j2 = load(extra)
         if N2 is None:
             N2 = np.zeros_like(P2)
+        if joinAt is not None:
+            i2 = {n: i for i, n in enumerate(n2)}
+            if joinAt in idx and joinAt in i2:
+                P2 = P2 + (J[idx[joinAt]] - j2[i2[joinAt]])
+            else:
+                print("  warning: '%s' not on both files -- %s left where it was"
+                      % (joinAt, os.path.basename(extra)))
         T = np.vstack([T, T2 + len(P)])
         P = np.vstack([P, P2])
         N = np.vstack([N, N2])
-    idx = {n: i for i, n in enumerate(names)}
 
     # Straight on, from the front: x across, z up, y into the screen.
     lo, hi = P.min(0), P.max(0)
