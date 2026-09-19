@@ -1045,3 +1045,85 @@ Model RS_PartBodyPraetorRed
 	PlacementCVars rs_bp_praetorbody
 	BaseFrame
 }
+
+// ==========================================================================
+// THE MIRROR PANEL. One quad wearing RSMIRROR, the camera texture declared in
+// ANIMDEFS. The skin is a texture NAME, not a file -- the camera texture is
+// registered under that name at load and the renderer paints the scene into it.
+//
+// FrameIndex on TRSO A because a MODELDEF entry needs a real sprite frame lump
+// to bind to, and that sprite already ships with this package.
+// ==========================================================================
+Model RS_VRMirror
+{
+	Path "models/mirror"
+	Model 0 "mirror_quad.obj"
+	Skin 0 "RSMIRROR"
+	Scale 1.0 1.0 1.0
+	USEACTORPITCH
+	USEACTORROLL
+	FrameIndex TRSO A 0 0
+}
+
+// ==========================================================================
+// YOUR OWN HEAD, AS ITS OWN ACTOR.
+//
+// The head, helmet and visor are surfaces 8..14 of the one body mesh, and a
+// skin swap is GLOBAL -- so "drawn in the world but not for the player wearing
+// it" cannot be done on the worn body. It needs to be a separate actor, because
+// what makes it work is MF8_MASTERNOSEE: "don't show object in first person if
+// their master is the current camera" (actor.h). Mastered to the pawn, it is
+// invisible to the player looking out of it and drawn from every OTHER
+// viewpoint -- the mirror, and any other player in co-op.
+//
+// Same mesh, complementary surfaces: the body wears 0..7 and hides the head,
+// this wears 8..14 and hides the body. The near-death breath already draws a
+// second copy of this model, so the cost is known and the pattern is proven.
+// ==========================================================================
+Model RS_PartBodyMarineHead
+{
+	Path "models/marine"
+	Model 0 "marine_whole.iqm"
+	SurfaceSkin 0 0  "invisible.png"
+	SurfaceSkin 0 1  "invisible.png"
+	SurfaceSkin 0 2  "invisible.png"
+	SurfaceSkin 0 3  "invisible.png"
+	SurfaceSkin 0 4  "invisible.png"
+	SurfaceSkin 0 5  "invisible.png"
+	SurfaceSkin 0 6  "invisible.png"
+	SurfaceSkin 0 7  "invisible.png"
+	SurfaceSkin 0 8  "doomslayer_helmet_visor_set3_hq_skin.png"
+	SurfaceSkin 0 9  "doomslayer_helmet_set3_skin.png"
+	SurfaceSkin 0 10 "doomslayer_helmet_interior_set3_skin.png"
+	SurfaceSkin 0 11 "doomslayer_hair.png"
+	SurfaceSkin 0 12 "doomslayer_head.png"
+	SurfaceSkin 0 13 "doomslayer_teeth.png"
+	SurfaceSkin 0 14 "doomslayer_eyes.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_marinebody
+	BaseFrame
+}
+
+// ==========================================================================
+// THE PRAETOR'S HELMET, AS ITS OWN ACTOR. Same trick as the marine's head.
+//
+// WHICH SURFACES WERE MEASURED, NOT ASSUMED. The body spans z -0.03..64.68 and
+// surfaces 3 and 4 (praetor_helmet_*) sit at 55.1..64.7 -- the very top -- with
+// 12 (praetor_visor_*) at 57.6..61.9. Surface 10 is named "glass" and looks like
+// a visor until you measure it: 50.3..51.8, chest height. It is torso glass and
+// stays with the body.
+//
+// He has no face mesh at all -- he is always helmeted -- so "draw your own face"
+// has nothing to do on him and only helmet and visor apply.
+// ==========================================================================
+Model RS_PartBodyPraetorHead
+{
+	Path "models/praetor"
+	Model 0 "praetor_body.iqm"
+	SurfaceSkin 0 3  "doomslayer_praetor_1001.png"
+	SurfaceSkin 0 4  "doomslayer_praetor_1011.png"
+	SurfaceSkin 0 12 "doomslayer_praetor_1001_visor_solid.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_praetorbody
+	BaseFrame
+}

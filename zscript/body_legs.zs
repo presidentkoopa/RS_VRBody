@@ -236,6 +236,41 @@ class RS_VRLegs play
 		Vector3 vel = pawn.Vel;
 		double speed = (vel.x * vel.x + vel.y * vel.y) > 0 ? sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
 
+		// JUMPING: THE FEET COME WITH YOU.
+		//
+		// Every foot target below is placed on the FLOOR (groundAt). That is right for
+		// walking and wrong the moment you leave the ground: the body rises, the targets
+		// stay down there, and the legs stretch after them -- and because these chains
+		// reach ABSOLUTELY they will succeed, so it reads as a marine growing stilts
+		// rather than as a marine jumping.
+		//
+		// Airborne, the feet hang under the hips with a little tuck, and neither foot is
+		// planted or mid-step. Landing drops straight back into the step machine with
+		// both feet unplanted, so the next stride re-plants them where they actually
+		// landed instead of snapping back to wherever they took off from.
+		//
+		// bOnMobj is in the test because a pawn standing on another actor is on the
+		// ground while its Z sits well above the floor; velocity alone would call that
+		// a jump and tuck the legs up under a marine who is simply standing on a crate.
+		bool airborne = (pawn.pos.z > pawn.floorz + 1.0) && !pawn.bOnMobj;
+		if (airborne && cvb("rs_legs_jump", true))
+		{
+			double legLen = (valve ? LEG_LEN_PRAETOR : LEG_LEN_MARINE) * scale;
+			double tuck   = clamp(cvf("rs_legs_jump_tuck", 0.78), 0.2, 1.0);
+			for (int f = 0; f < 2; ++f)
+			{
+				int i = IX(pnum, f);
+				if (!tgt[i]) continue;
+				double sideJ = (f == 0) ? -half : half;
+				tgt[i].SetOrigin((bodyOrigin.x + sideJ * rx,
+				                  bodyOrigin.y + sideJ * ry,
+				                  bodyOrigin.z - legLen * tuck), true);
+				planted[i] = false;
+				stepT[i]   = -1.0;
+			}
+			return;
+		}
+
 		// A foot is in the air at most one at a time. Both swinging is a jump, and
 		// a jump is not a walk -- without this the body drops into a bunny-hop the
 		// moment the stride trigger fires for both feet on the same tic.

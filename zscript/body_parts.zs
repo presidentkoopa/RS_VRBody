@@ -307,3 +307,6 @@ class RS_HandPraetorOff  : RS_BodyPart { Default { +DECOUPLEDANIMATIONS; } State
 // every frame and repainting a dozen surfaces per tic to do it would be absurd.
 class RS_PartBodyMarineRed  : RS_BodyWhole {}
 class RS_PartBodyPraetorRed : RS_BodyWhole {}
+
+class RS_PartBodyMarineHead : RS_BodyWhole {}
+class RS_PartBodyPraetorHead : RS_BodyWhole {}

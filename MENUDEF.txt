@@ -102,6 +102,29 @@ OptionString "RS_BodyHelmetStyles"
 	"marine",  "Doom marine (classic)"
 }
 
+// A DIRECTION THAT CANNOT BE MEASURED FROM OUTSIDE A HEADSET. Where a hinge axis
+// comes off the rig's own geometry, the SIGN is a convention -- so it is a row here
+// rather than a number I picked. Two of these beat one wrong guess shipped as fact.
+OptionValue "RSBodyWristTurn"
+{
+	0,   "Normal"
+	90,  "Quarter turn"
+	180, "Half turn"
+	270, "Three quarter turn"
+}
+
+OptionValue "RSBodyFlipDir"
+{
+	 1.0, "As it is"
+	-1.0, "The other way"
+}
+
+OptionValue "RSBodyFingerSign"
+{
+	-1.0, "Inwards (make a fist)"
+	 1.0, "Outwards (flip if they bend back)"
+}
+
 // Quarter turns for an arm's fit Yaw. The facing is found on screen: pick the one
 // where the elbows bend down and back, then trim on the Yaw slider.
 OptionValue "RS_BodyArmFacing"
@@ -178,7 +201,10 @@ OptionMenu "RS_VRBodyMain"
 	StaticText "His hands are his own, so there is no wrist to line up", "DarkGray"
 	StaticText "and no arm pairing to get wrong. Height and arm length", "DarkGray"
 	StaticText "is the calibration that exists so far.", "DarkGray"
-	StaticText "Your own head is off because you are inside it.", "DarkGray"
+	StaticText "These now draw your head as its OWN actor, hidden from", "DarkGray"
+	StaticText "YOUR eyes and visible to everyone else -- so it shows up", "DarkGray"
+	StaticText "in the mirror and in co-op, but never in your face.", "DarkGray"
+	StaticText "Helmet only is the option if the face is too much.", "DarkGray"
 	StaticText ""
 	StaticText "How he reads", 1
 	Option    "Breathe red near death",   "rs_body_breathe",        "YesNo"
@@ -204,12 +230,58 @@ OptionMenu "RS_VRBodyMain"
 	Submenu   "Holsters -- store and draw",      "RS_VRBodyHolsters"
 	Submenu   "The old part rig (parked)",       "RS_VRBodyParts"
 	StaticText ""
+	StaticText "Leaning and jumping", 1
+	Option    "Spine bends when you lean",     "rs_body_lean",          "OnOff"
+	StaticText "Without this he slides with your head like a statue on", "DarkGray"
+	StaticText "rails. With it he pivots at the waist, as you do.", "DarkGray"
+	Slider    "Lean reach (map units)",        "rs_body_lean_span",     4.0, 30.0, 1.0, 1
+	Slider    "Bend at full lean (deg)",       "rs_body_lean_max",      0.0, 60.0, 2.0, 1
+	Option    "Forward lean direction",        "rs_body_lean_sign_fwd", "RSBodyFlipDir"
+	Option    "Sideways lean direction",       "rs_body_lean_sign_side","RSBodyFlipDir"
+	Slider    "Lean ease (tics)",              "rs_body_lean_ease",     0.0, 10.0, 0.5, 1
+	Option    "Feet leave the floor on a jump","rs_legs_jump",          "OnOff"
+	Slider    "  Leg tuck in the air",         "rs_legs_jump_tuck",     0.2, 1.0, 0.02, 2
+	StaticText ""
+	StaticText "Look at yourself", 1
+	Command   "Mirror on / off",               "netevent rs_body_mirror"
+	StaticText "A panel in front of you showing you. Bindable under", "DarkGray"
+	StaticText "Customize Controls -> VR Body. It cannot make you sick:", "DarkGray"
+	StaticText "your head still drives your view, nothing else moves.", "DarkGray"
+	Slider    "  How far in front",            "rs_body_mirror_dist",   32.0, 400.0, 8.0, 0
+	Slider    "  Height",                      "rs_body_mirror_up",     0.0, 80.0, 2.0, 0
+	Slider    "  How much it takes in",        "rs_body_mirror_fov",    30.0, 140.0, 5.0, 0
+	StaticText ""
+	StaticText "Wrists", 1
+	Option    "Wrist roll",                    "rs_body_wrist_turn",    "RSBodyWristTurn"
+	StaticText "If the hands are rolled the wrong way round on the", "DarkGray"
+	StaticText "wrist, step through these until they sit right.", "DarkGray"
+	Slider    "Roll taken by the forearm",     "rs_body_wrist_roll_share", 0.0, 1.0, 0.05, 2
+	StaticText "A forearm pronates along its whole length. At 0 the hand", "DarkGray"
+	StaticText "bone takes every degree and the wrist pinches shut.", "DarkGray"
+	StaticText ""
+	StaticText "Fingers", 1
+	Option    "Fingers move",                  "rs_body_fingers",       "OnOff"
+	Option    "Which way they close",          "rs_body_finger_sign",   "RSBodyFingerSign"
+	StaticText "If the fingers bend BACKWARDS, flip this. It is the one", "DarkGray"
+	StaticText "part of the hinge that cannot be measured from outside a", "DarkGray"
+	StaticText "headset, so it is yours to set rather than mine to guess.", "DarkGray"
+	Slider    "Closed (holding something)",    "rs_body_finger_curl",   0.0, 1.5, 0.05, 2
+	Slider    "Open (empty hand)",             "rs_body_finger_rest",   0.0, 1.0, 0.05, 2
+	Slider    "Thumb amount",                  "rs_body_finger_thumb",  0.0, 1.5, 0.05, 2
+	Slider    "Ease (tics)",                   "rs_body_finger_ease",   0.0, 10.0, 0.5, 1
+	StaticText ""
 	StaticText "Diagnostics -- off unless you are chasing something.", 1
 	Option    "Reach markers (coloured dots)", "rs_body_reach_markers", "OnOff"
 	StaticText "Red on your main hand, blue on your off hand, green on", "DarkGray"
 	StaticText "every holster it can reach. A holster with no dot is one", "DarkGray"
 	StaticText "the reach test is skipping.", "DarkGray"
 	Option    "Holster log lines",             "rs_body_holster_debug", "OnOff"
+	StaticText ""
+	Option    "Write an arm report",           "rs_body_diag",          "OnOff"
+	StaticText "Turn on, load a level, stand still 2 seconds. Writes", "DarkGray"
+	StaticText "rs_profiles/bodydiag.json: where your headset and each", "DarkGray"
+	StaticText "controller are, where the body is seated, and how far", "DarkGray"
+	StaticText "each arm has to reach. Stops on its own after one write.", "DarkGray"
 }
 
 // THE MESH'S OWN FIT, read live by the renderer. One set for one body, where the

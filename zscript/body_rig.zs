@@ -999,6 +999,145 @@ class RS_VRBodyRig : EventHandler
 		        pawn.HmdPos.Z + sUp[s]);
 	}
 
+	// ---- A DIAGNOSTIC THAT IS OFF UNTIL ASKED FOR --------------------------
+	//
+	// TWO THINGS WERE WRONG WITH THE FIRST VERSION OF THIS AND BOTH REACHED THE OWNER.
+	//
+	// IT SET AN ENGINE CVAR FROM PLAY SCOPE. `CVar.FindCVar("r_reachchain_debug").SetBool()`
+	// from WorldTick aborts the VM -- "Attempt to change CVAR outside of menu code" -- and
+	// took the game down on every map load. The refusal is CORRECT and is not to be worked
+	// around: a play-scope script flipping an engine render cvar is exactly what that guard
+	// exists to stop. An engine debug cvar is the owner's to set from the console. A cvar
+	// this package DECLARES is ours. The trace is no longer touched from here at all.
+	//
+	// AND IT RAN WITHOUT BEING ASKED. It armed itself on map load in a normal game. A
+	// diagnostic that decides for itself when to run is a diagnostic in somebody's way, and
+	// this package has shipped default-on debug toggles before. rs_body_diag defaults FALSE
+	// and nothing below happens until it is switched on.
+	//
+	// WHAT IT STILL DOES, once asked: writes the numbers ZScript can actually see to
+	// rs_profiles/bodydiag.json -- where the headset is, where the body is seated, where
+	// each arm's target is, and HOW FAR THAT TARGET IS FROM THE BODY'S SEAT. That last one
+	// is the one that matters: a target further from the shoulder than the arm is long
+	// cannot be reached, and the hand stops short wherever the arm ran out. If it is inside
+	// arm's length instead, the arm is reaching and the fault is at the wrist.
+	//
+	// For the solver's own internals -- shoulder, elbow, gap, stretch -- `r_reachchain_debug 1`
+	// in the console is the tool, and it belongs to whoever is at the console.
+	private int  diagTics;
+	private bool diagDone;
+
+	private void diagBurst(PlayerPawn pawn)
+	{
+		if (!cvb("rs_body_diag", false)) return;
+		if (diagDone || !pawn || !parts[RSLOT_BODY]) return;
+
+		if (diagTics == 70)
+		{
+			Vector3 bodyAt = slotWorldAt(pawn, RSLOT_BODY);
+			int sr, sl;
+			Actor hr = armTarget(RSLOT_ARM_R, sr);
+			Actor hl = armTarget(RSLOT_ARM_L, sl);
+			level.JSONProfileBegin();
+			level.JSONProfileSetDouble("style_is_praetor",
+				cvs("rs_body_whole_style", "marine") == "praetor" ? 1 : 0);
+			level.JSONProfileSetDouble("hmd_x", pawn.HmdPos.X);
+			level.JSONProfileSetDouble("hmd_y", pawn.HmdPos.Y);
+			level.JSONProfileSetDouble("hmd_z", pawn.HmdPos.Z);
+			level.JSONProfileSetDouble("seat_x", bodyAt.X);
+			level.JSONProfileSetDouble("seat_y", bodyAt.Y);
+			level.JSONProfileSetDouble("seat_z", bodyAt.Z);
+			level.JSONProfileSetDouble("seat_fwd", sFwd[RSLOT_BODY]);
+			level.JSONProfileSetDouble("seat_side", sSide[RSLOT_BODY]);
+			level.JSONProfileSetDouble("seat_up", sUp[RSLOT_BODY]);
+			level.JSONProfileSetDouble("body_yaw", mBodyYaw);
+			level.JSONProfileSetDouble("body_scale", sScale[RSLOT_BODY]);
+			level.JSONProfileSetDouble("body_actor_x", parts[RSLOT_BODY].pos.X);
+			level.JSONProfileSetDouble("body_actor_y", parts[RSLOT_BODY].pos.Y);
+			level.JSONProfileSetDouble("body_actor_z", parts[RSLOT_BODY].pos.Z);
+			level.JSONProfileSetDouble("r_null", hr ? 0 : 1);
+			level.JSONProfileSetDouble("l_null", hl ? 0 : 1);
+			if (hr)
+			{
+				level.JSONProfileSetDouble("r_is_worldhand",
+					hr.GetClassName() == 'RS_HandWorldMain' ? 1 : 0);
+				level.JSONProfileSetDouble("r_x", hr.pos.X);
+				level.JSONProfileSetDouble("r_y", hr.pos.Y);
+				level.JSONProfileSetDouble("r_z", hr.pos.Z);
+				level.JSONProfileSetDouble("r_dist_from_seat", (hr.pos - bodyAt).Length());
+				level.JSONProfileSetDouble("r_dist_from_hmd", (hr.pos - pawn.HmdPos).Length());
+			}
+			if (hl)
+			{
+				level.JSONProfileSetDouble("l_is_worldhand",
+					hl.GetClassName() == 'RS_HandWorldOff' ? 1 : 0);
+				level.JSONProfileSetDouble("l_x", hl.pos.X);
+				level.JSONProfileSetDouble("l_y", hl.pos.Y);
+				level.JSONProfileSetDouble("l_z", hl.pos.Z);
+				level.JSONProfileSetDouble("l_dist_from_seat", (hl.pos - bodyAt).Length());
+				level.JSONProfileSetDouble("l_dist_from_hmd", (hl.pos - pawn.HmdPos).Length());
+			}
+			level.JSONProfileSave("bodydiag");
+			Console.Printf("\c[Gold][BODYDIAG] written to rs_profiles/bodydiag.json");
+			diagDone = true;
+			return;
+		}
+		diagTics++;
+	}
+
+	// ---- THE HAND TARGETS -------------------------------------------------
+	//
+	// Two plain actors this rig puts on the controllers every tic, for the chains to reach.
+	// They exist because a chain CANNOT aim at RS_WorldHands' hands: those ride the
+	// controller inside the draw, so their ObjectToWorldMatrix leaves the world translate
+	// out on purpose and the solve resolves them to the pawn. See the note in armTarget.
+	//
+	// AttackPos / OffhandPos are the controller positions the playsim already publishes --
+	// the same pair calibrateArms measures reach from. Angles come across too, so the
+	// solver's fingerDir and twist reference mean something rather than reading off an
+	// actor that is not turning.
+	private Actor handTgt[2];
+
+	private void handTargets(PlayerPawn pawn)
+	{
+		if (!pawn) return;
+		if (!parts[RSLOT_BODY])
+		{
+			for (int h = 0; h < 2; ++h)
+				if (handTgt[h]) { handTgt[h].Destroy(); handTgt[h] = null; }
+			return;
+		}
+		for (int h = 0; h < 2; ++h)
+		{
+			Vector3 p;
+			double ang, pit, rol;
+			if (h == 0)
+			{
+				p = pawn.AttackPos;   ang = pawn.AttackAngle;
+				pit = pawn.AttackPitch; rol = pawn.AttackRoll;
+			}
+			else
+			{
+				p = pawn.OffhandPos;  ang = pawn.OffhandAngle;
+				pit = pawn.OffhandPitch; rol = pawn.OffhandRoll;
+			}
+			// A zero position is "no controller this tic" -- a desktop player, or a frame
+			// before tracking starts. Leave the target where it was rather than dragging
+			// the arm to the map origin.
+			if (p == (0, 0, 0)) continue;
+
+			if (!handTgt[h])
+			{
+				handTgt[h] = Actor.Spawn("RS_VRFootTarget", p);
+				if (!handTgt[h]) continue;
+			}
+			handTgt[h].SetOrigin(p, true);
+			handTgt[h].angle = ang;
+			handTgt[h].pitch = pit;
+			handTgt[h].roll  = rol;
+		}
+	}
+
 	// THE WALK. Driven from here rather than from placePart because it is a state
 	// machine that must run exactly once a tic, while placePart runs per slot.
 	//
@@ -1280,16 +1419,103 @@ class RS_VRBodyRig : EventHandler
 	// rigged hand_left.iqm, 1 the Quake hand). The right arm takes the main hand
 	// unless rs_body_arm_swap says the engine's IQM load mirror put it on the other
 	// side (plan 3e) -- which is confirmed on screen, not assumed.
+	// WHICH CONTROLLER AN ARM BELONGS TO. 0 is the main hand, 1 the off hand. Kept in
+	// one place so armTarget and drawnHand can never disagree about the pairing.
+	private int armHand(int s)
+	{
+		bool main = (s == RSLOT_ARM_R);
+		if (cvb("rs_body_arm_swap", false)) main = !main;
+
+		// A WHOLE BODY'S _R BONES ARE DRAWN ON THE PLAYER'S LEFT, so its arms pair the
+		// other way round. Observed directly once the chains were finally solving, in
+		// the owner's words: "my left shoulder and arm crosses my body and is controlled
+		// by my right controller, my right shoulder and arm crosses my body and is
+		// controlled by my left controller." Both arms reaching the correct controllers
+		// and still crossing is the signature of a swapped pair and nothing else.
+		//
+		// I TOOK THIS OUT ONCE AND IT WAS A MISTAKE. The reasoning was that the original
+		// "arms crossed in an X" report came from a time when no chain solved at all, so
+		// the X was the mesh's own rest pose and the swap was a guess against a broken
+		// measurement. The first half of that was true and the conclusion still wrong:
+		// the pairing was independently reversed, and removing it put the X back for a
+		// different reason. Restored, and now resting on an observation instead.
+		//
+		// Not rs_body_arm_swap: that cvar is the PART rig's, it also decides which hand
+		// mesh that rig wears, and the owner's ini pins it false. This is a property of
+		// the whole-body meshes themselves, so it belongs in code where it cannot be
+		// switched off by accident. It lives here rather than in armTarget so drawnHand
+		// pairs identically -- two places deciding this once already cost a day.
+		if (parts[RSLOT_BODY]) main = !main;
+		return main ? 0 : 1;
+	}
+
+	// THE HAND ACTUALLY DRAWN ON THAT CONTROLLER -- which is no longer the same actor
+	// the chain aims at. A whole body aims at a marker this rig places (armTarget
+	// below), but the drawn hand still has to be found so it can be hidden, or
+	// RS_WorldHands' glove is left sitting inside the body's own hand.
+	private Actor drawnHand(int s)
+	{
+		int hand = armHand(s);
+		bool main = (hand == 0);
+		int slot = main ? RSLOT_HAND_MAIN : RSLOT_HAND_OFF;
+		if (handSlotIsForeign(slot))
+		{
+			Actor hd = dressedOn[hand];
+			if (!hd) hd = Actor(ThinkerIterator.Create(main ? "RS_HandWorldMain" : "RS_HandWorldOff").Next());
+			return hd;
+		}
+		return parts[slot];
+	}
+
 	private Actor armTarget(int s, out int sock)
 	{
 		sock = 0;
-		bool main = (s == RSLOT_ARM_R);
-		if (cvb("rs_body_arm_swap", false)) main = !main;
+		bool main = (armHand(s) == 0);
+
+		// AIM AT A TARGET WE MOVE OURSELVES, NOT AT THE CONTROLLER-FOLLOWING HAND.
+		//
+		// THIS IS THE BUG THAT MADE EVERY OTHER HAND FIX LOOK LIKE IT DID NOTHING, and it
+		// is stated in the engine's own comment above TargetMatrix (model_reach.cpp:722):
+		//
+		//     "a model riding a controller or another model never reads it
+		//      (ObjectToWorldMatrix SKIPS THE WORLD TRANSLATE)"
+		//
+		// RS_WorldHands' hands ride the controller through MODELDEF FollowMainHand, so the
+		// controller placement happens inside the draw and their ObjectToWorldMatrix
+		// deliberately leaves the world translate out. A reach chain aimed at one therefore
+		// resolves its target to the ACTOR's position -- which for those hands never leaves
+		// the pawn. The arm report proved it: both arms reported the identical target at
+		// (144, -1392, -48), the player's own x/y, 41 units under his head. The arms were
+		// reaching at his chest. That is the crossed X, and it is why the measured palm
+		// offset, the pairing and absolute reach all changed nothing -- the target was never
+		// at the controller to begin with.
+		//
+		// ZScript already knows where the controllers are: AttackPos and OffhandPos, which
+		// calibrateArms has been reading all along. So the chain aims at a plain actor this
+		// rig moves there every tic -- the same shape the foot targets use, and for the same
+		// reason: a target we place is a target that is actually where we think it is.
+		//
+		// A SECOND REVERSAL USED TO SIT HERE AND IT IS GONE. It was put in to answer "my arms
+		// are crossed in an X", and it could not have been the cause: at the time BOTH arms
+		// were reaching the same point on the player's chest, so of course they crossed, and
+		// swapping which arm got which identical target changed nothing. It was a guess made
+		// against a broken measurement, and leaving it in would now genuinely cross the arms
+		// -- the markers below are built straight from AttackPos and OffhandPos, so the plain
+		// pairing is the correct one and rs_body_arm_swap remains the one place handedness
+		// is decided.
 		int hand = main ? 0 : 1;
 		int slot = main ? RSLOT_HAND_MAIN : RSLOT_HAND_OFF;
 
 		Actor hd;
 		string style;
+		// A WHOLE BODY AIMS AT ITS OWN TARGET, kept on the controller by handTargets()
+		// below. The part rig keeps the old behaviour: its arms are separate actors with a
+		// measured wrist socket, and that pairing was tuned against the hand it can see.
+		if (parts[RSLOT_BODY] && handTgt[hand])
+		{
+			style = cvs(main ? "rs_body_style_handmain" : "rs_body_style_handoff", "rs");
+			return handTgt[hand];
+		}
 		if (handSlotIsForeign(slot))
 		{
 			// RS_WorldHands' hand, found by name so nothing here needs that mod.
@@ -1374,7 +1600,7 @@ class RS_VRBodyRig : EventHandler
 				up    = valve ? 'ValveBiped.Bip01_R_UpperArm' : 'bip_upperArm_R';
 				mid   = valve ? 'ValveBiped.Bip01_R_Forearm'  : 'bip_lowerArm_R';
 				wrist = valve ? 'ValveBiped.Bip01_R_Hand'     : 'bip_hand_R';
-				tuning = 'rs_armik_rt';
+				tuning = 'rs_armik_wb_rt';
 				outward = (-1, 0, 0);
 				// Measured on this skeleton at its 0.872 scale, by the same method as
 				// the Slayer's: index minus pinky off the forearm, in model order.
@@ -1385,11 +1611,29 @@ class RS_VRBodyRig : EventHandler
 				up    = valve ? 'ValveBiped.Bip01_L_UpperArm' : 'bip_upperArm_L';
 				mid   = valve ? 'ValveBiped.Bip01_L_Forearm'  : 'bip_lowerArm_L';
 				wrist = valve ? 'ValveBiped.Bip01_L_Hand'     : 'bip_hand_L';
-				tuning = 'rs_armik_lf';
+				tuning = 'rs_armik_wb_lf';
 				outward = (1, 0, 0);
 				twistRef = (-0.1929, 0.6177, -0.7624);
 			}
 
+			// A TUNING PREFIX OF ITS OWN, rs_armik_wb_*, AND THAT IS THE POINT.
+			//
+			// The palm has to be where the controller is. The solver was stopping short of
+			// it for a reason that is not reach at all: softStart defaults to 0.90, so past
+			// ninety per cent of natural extension the arm DELIBERATELY EASES OFF and lets
+			// the hand lag the target. That is the right look for a character animating
+			// itself and exactly wrong for a hand the player is holding -- it guarantees
+			// the palm is never quite where their hand is, and no amount of stretch fixes
+			// it because it happens before the stretch cap is consulted.
+			//
+			// The whole body therefore gets its own tuning names with VR defaults: no soft
+			// ease, and the full stretch the engine allows. The part rig keeps rs_armik_*
+			// unchanged -- an arm that is a separate actor has different problems.
+			//
+			// NEW NAMES RATHER THAN NEW DEFAULTS, deliberately. rs_armik_rt_stretch_max is
+			// already saved in the owner's ini at 1.25, and a `user` cvar in the ini beats
+			// any default this package ships -- so changing the old ones would have reached
+			// him as no change at all. A prefix he has never had cannot be stale.
 			a.SetModelReachChain(i, up, mid, wrist, tuning);
 			a.SetModelReachFrame(i, outward, (0, -1, 0), (0, 0, 1), twistRef);
 			a.SetModelReachFollowJoint(i, 'None');
@@ -1402,8 +1646,8 @@ class RS_VRBodyRig : EventHandler
 			//
 			// This body has hands of its own, so RS_WorldHands' hand on the same
 			// controller would be a second hand inside the first. It still has to
-			// EXIST -- it is what holds, grabs and throws, and it is the actor this
-			// chain aims at -- so it is hidden, never destroyed. rs_handworld is not
+			// EXIST -- it is what holds, grabs and throws -- so it is hidden, never
+			// destroyed. rs_handworld is not
 			// the switch for this: that one destroys the actors (handworld.zs
 			// Reconcile), which would take the grabbing with it AND delete the thing
 			// the arm is reaching for.
@@ -1411,7 +1655,11 @@ class RS_VRBodyRig : EventHandler
 			// Done from HERE rather than in RS_WorldHands because this is the side
 			// that knows a whole body is worn, and it needs no cvar written, no cvar
 			// declared in two packages, and no change to a mod that may be absent.
-			hideReachedHand(hd, true);
+			//
+			// ASK drawnHand, NOT the chain's target. Those used to be the same actor and
+			// are not any more: a whole body aims at a marker, and hiding the marker
+			// hides nothing while leaving the glove on screen inside the body's hand.
+			hideReachedHand(drawnHand(slot), true);
 			// THE CHAIN ENDS AT THE WRIST; THE THING THAT MUST LAND ON YOUR HAND IS THE
 			// PALM. Those are not the same point and the gap is a whole hand.
 			//
@@ -1464,7 +1712,67 @@ class RS_VRBodyRig : EventHandler
 				else       endOfs = ( 0.624, -1.376, -1.195);
 			}
 			a.SetModelReachEndOfs(i, endOfs.x, endOfs.y, endOfs.z);
-			a.SetModelReachTarget(i, hd, (0, 0, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_whole');
+
+			// ABSOLUTE REACH. The palm lands ON the controller, bones scaling to span
+			// whatever distance it is at, instead of the solver easing off near full
+			// extension and leaving the hand short. In VR the player's real hand is ground
+			// truth: a stretched arm reads as odd, a hand that is not where their hand is
+			// reads as broken. Mode 0 stays the default for every other caller.
+			a.SetModelReachStretchMode(i, 1);
+
+			// THE TARGET'S TWO DIRECTIONS ARE THE MARKER'S NOW, NOT THE RS HAND'S.
+			//
+			// These were (0,-1,0) and (1,0,0), measured in the RS hand MODEL's space back
+			// when the chain aimed at that hand. The chain aims at a plain marker now, and
+			// a marker has no model -- its matrix is position and facing only, built in the
+			// renderer's axis order (MarkerMatrix, model_reach.cpp). So in its space:
+			//
+			//     +X  the way the controller POINTS      (render x = map x)
+			//     +Y  UP                                 (render y = map z)
+			//     +Z  across                             (render z = map y)
+			//
+			// Left as they were, fingerDir (0,-1,0) meant STRAIGHT DOWN, and fingerDir is
+			// not decoration: the swivel reads it to decide where the elbow goes, and the
+			// end aim below reads it to decide where the hand points. Both were being told
+			// the fingers point at the floor.
+			//
+			// Fingers point the way the controller points; the roll reference is up. A roll
+			// reference only has to be off the forward axis to pin the frame, so "up" is an
+			// honest answer here rather than a fitted one.
+			//
+			// WHICH WAY IS UP FOR A HAND IS NOT HONEST TO ASSUME, hence rs_body_wrist_turn.
+			//
+			// The roll reference IS the wrist's roll. The end aim below lands the bone's
+			// frame on the target's, so turning this vector about the pointing axis turns
+			// the hand about its own wrist by exactly that much. Rotating (0,1,0) about +X
+			// in quarter turns gives up, across, down, across the other way -- the four a
+			// hand can plausibly sit at when a rig's idea of "up" disagrees with a
+			// controller's.
+			//
+			// No engine call and no new field for this: it is the same reasoning as the
+			// finger and lean signs. The axis comes off the geometry, the convention comes
+			// off the owner's eyes, and a quarter turn found on screen in one keypress
+			// beats a number guessed at from out here.
+			Vector3 twistT;
+			int qt = ((cvi("rs_body_wrist_turn", 0) % 360) + 360) % 360;
+			if      (qt ==  90) twistT = (0,  0,  1);
+			else if (qt == 180) twistT = (0, -1,  0);
+			else if (qt == 270) twistT = (0,  0, -1);
+			else                twistT = (0,  1,  0);
+			a.SetModelReachTarget(i, hd, (0, 0, 0), (1, 0, 0), twistT, 'rs_arm_sock_whole');
+
+			// AND THE WRIST ACTUALLY TURNS. The solve places the end joint and never
+			// orients it -- align swivels the elbow, twist rolls the forearm, and neither
+			// is the hand -- so until this existed the hand arrived at the controller and
+			// then ignored entirely how the controller was HELD. Engine call added for
+			// this; the frames it matches are the two declared just above and the rig's own
+			// twistRef passed to SetModelReachFrame.
+			// THE FOREARM TAKES MOST OF THE ROLL. Rendered off this rig: a 180 degree
+			// wrist roll on the hand bone alone collapses the wrist to a POINT -- the
+			// candy-wrapper pinch, because bip_lowerArm parents bip_hand directly with
+			// no twist bone between them. Split with the forearm, the same roll is
+			// clean. That is the "ugly as fuck" and it was never about the angle.
+			a.SetModelReachEndAim(i, 1, 1.0, clamp(cvf("rs_body_wrist_roll_share", 0.6), 0.0, 1.0));
 		}
 
 		// ---- and the legs, on chains 2 and 3 -------------------------------
@@ -1524,24 +1832,29 @@ class RS_VRBodyRig : EventHandler
 		{
 			wholeHeadState = hstate;
 			wholeHeadOn    = a;
-			// EACH BODY HAS ITS OWN SURFACE NUMBERS, and the Praetor has no face at
-			// all -- the helmet IS his head -- so the face switch has nothing to do
-			// on him and the helmet and visor switches carry it.
+			// THE WORN BODY NEVER SHOWS ITS OWN HEAD ANY MORE. It is the head COPY
+			// that draws it (syncHeadCopy), because only a separate actor can be
+			// hidden from one viewpoint and drawn from the others. Leaving these
+			// switched on by cvar as well would draw the head TWICE -- once in your
+			// eyes and once in the mirror -- which is precisely the bug the copy
+			// exists to avoid.
+			//
+			// Still switched here rather than done once at spawn: a body actor is
+			// replaced on every style and colour change, and a fresh one arrives with
+			// its MODELDEF skins, head included.
+			//
+			// EACH BODY HAS ITS OWN SURFACE NUMBERS. Measured off the meshes: the
+			// Praetor's helmet is 3 and 4 and his visor 12 (surface 10 is named
+			// "glass" but sits at chest height and belongs to the torso); the
+			// marine's head runs 8..14.
 			if (cvs("rs_body_whole_style", "marine") == "praetor")
 			{
-				headSkin(a,  3, helm  ? "doomslayer_praetor_1001.png" : "invisible.png");
-				headSkin(a,  4, helm  ? "doomslayer_praetor_1011.png" : "invisible.png");
-				headSkin(a, 12, visor ? "doomslayer_praetor_1001_visor_solid.png" : "invisible.png");
+				headHide(a, 3); headHide(a, 4); headHide(a, 12);
 			}
 			else
 			{
-				headSkin(a,  8, visor ? "doomslayer_helmet_visor_set3_hq_skin.png" : "invisible.png");
-				headSkin(a,  9, helm  ? "doomslayer_helmet_set3_skin.png"          : "invisible.png");
-				headSkin(a, 10, helm  ? "doomslayer_helmet_interior_set3_skin.png" : "invisible.png");
-				headSkin(a, 11, head  ? "doomslayer_hair.png"  : "invisible.png");
-				headSkin(a, 12, head  ? "doomslayer_head.png"  : "invisible.png");
-				headSkin(a, 13, head  ? "doomslayer_teeth.png" : "invisible.png");
-				headSkin(a, 14, head  ? "doomslayer_eyes.png"  : "invisible.png");
+				headHide(a,  8); headHide(a,  9); headHide(a, 10); headHide(a, 11);
+				headHide(a, 12); headHide(a, 13); headHide(a, 14);
 			}
 		}
 	}
@@ -1568,9 +1881,7 @@ class RS_VRBodyRig : EventHandler
 	{
 		for (int i = 0; i < 2; ++i)
 		{
-			int sock;
-			Actor hd = armTarget((i == 0) ? RSLOT_ARM_R : RSLOT_ARM_L, sock);
-			hideReachedHand(hd, false);
+			hideReachedHand(drawnHand((i == 0) ? RSLOT_ARM_R : RSLOT_ARM_L), false);
 		}
 	}
 
@@ -1645,10 +1956,31 @@ class RS_VRBodyRig : EventHandler
 	private string paintedAs;
 	private Actor  paintedOn;
 
+	// THE PATH IS A PARAMETER NOW, AND IT HAD TO BECOME ONE.
+	//
+	// This hardcoded "models/marine" while the Praetor's calls handed it PRAETOR skin
+	// names -- so every one of those asked models/marine for a file that only exists
+	// under models/praetor. Only the invisible.png half ever resolved, because that one
+	// really does live under marine. So turning his helmet OFF worked and turning it ON
+	// quietly did not, which is the worst shape a bug can take: half of it works, so
+	// nobody suspects the mechanism.
+	private void headSkinAt(Actor a, int surface, string path, string skin)
+	{
+		a.A_ChangeModel("", 0, "", "", surface, path, skin,
+		                CMDL_USESURFACESKIN, 0, 0, "", "");
+	}
+
+	// The marine's, by far the commonest caller.
 	private void headSkin(Actor a, int surface, string skin)
 	{
-		a.A_ChangeModel("", 0, "", "", surface, "models/marine", skin,
-		                CMDL_USESURFACESKIN, 0, 0, "", "");
+		headSkinAt(a, surface, "models/marine", skin);
+	}
+
+	// INVISIBLE LIVES UNDER MARINE whoever is asking. One 1x1 transparent png is enough
+	// for the package and there is no reason to ship a second copy per body.
+	private void headHide(Actor a, int surface)
+	{
+		headSkinAt(a, surface, "models/marine", "invisible.png");
 	}
 
 	// No initialiser: ZScript does not allow one on a member. It does not need one
@@ -1799,11 +2131,498 @@ class RS_VRBodyRig : EventHandler
 		if (snapTurn) a.ClearInterpolation();
 	}
 
+	// ---- your own head, drawn for everyone but you ------------------------
+	//
+	// THE HEAD HAS TO EXIST AND YOU MUST NOT SEE IT. You are inside it, so a face
+	// drawn at your eyes is a face you are looking out through -- but the mirror
+	// wants it, and so does anyone else in co-op. Those are different VIEWPOINTS,
+	// and a skin swap on the worn body is global, so it cannot answer a per-view
+	// question at all.
+	//
+	// MF8_MASTERNOSEE is exactly the engine's answer and it ALREADY EXISTED: "don't
+	// show object in first person if their master is the current camera" (actor.h).
+	// Mastered to the pawn, this copy is skipped when the view belongs to the pawn
+	// and drawn from every other viewpoint. No engine change -- worth checking for
+	// before proposing one.
+	//
+	// Same mesh, complementary surfaces: the worn body keeps 8..14 invisible as it
+	// always has, and this copy hides 0..7 and shows the head. The near-death breath
+	// already draws a second copy of this model, so the cost is known and the shape
+	// is proven.
+	private Actor  headCopy;
+	private string headCopyClass;
+
+	private void syncHeadCopy(PlayerPawn pawn)
+	{
+		Actor b = parts[RSLOT_BODY];
+		bool praetor = (cvs("rs_body_whole_style", "marine") == "praetor");
+		bool head  = cvb("rs_body_whole_head",   false);
+		bool helm  = cvb("rs_body_whole_helmet", false);
+		bool visor = cvb("rs_body_whole_visor",  false);
+
+		// THE PRAETOR HAS NO FACE MESH -- he is always helmeted -- so "draw your own
+		// face" has nothing to do on him and only helmet and visor decide whether he
+		// needs a copy at all.
+		bool want = praetor ? (helm || visor) : (head || helm || visor);
+		string cls = praetor ? "RS_PartBodyPraetorHead" : "RS_PartBodyMarineHead";
+		if (!b || !want)
+		{
+			if (headCopy) { headCopy.Destroy(); headCopy = null; }
+			headCopyClass = "";
+			return;
+		}
+		// Swapping body mid-play swaps which copy is right, so the class is tracked and
+		// the old one thrown away -- exactly as the breath does when the torso changes.
+		if (headCopy && headCopyClass != cls) { headCopy.Destroy(); headCopy = null; }
+
+		if (!headCopy)
+		{
+			headCopyClass = cls;
+			headCopy = Actor.Spawn(cls, pawn.Pos, NO_REPLACE);
+			if (!headCopy) return;
+			headCopy.A_ChangeModel("", 0, "", "", 0, "", "", 0, 0, 0, "", "");
+			// THE TWO LINES THAT MAKE IT WORK. The master says whose view to hide
+			// from; the flag says to do it. Without the master the flag does nothing
+			// at all and the head is simply drawn in your eyes.
+			headCopy.master = pawn;
+			headCopy.bMASTERNOSEE = true;
+			placeActor(pawn, headCopy, RSLOT_BODY);
+			headCopy.ClearInterpolation();
+		}
+		if (praetor)
+		{
+			// Measured, not guessed: 3 and 4 are praetor_helmet_* at the top of the
+			// mesh, 12 is praetor_visor_*. Everything else is body and is not in this
+			// MODELDEF at all, so it draws nothing without being told to.
+			if (helm)  { headSkinAt(headCopy, 3, "models/praetor", "doomslayer_praetor_1001.png");
+			             headSkinAt(headCopy, 4, "models/praetor", "doomslayer_praetor_1011.png"); }
+			else       { headHide(headCopy, 3); headHide(headCopy, 4); }
+			if (visor) headSkinAt(headCopy, 12, "models/praetor", "doomslayer_praetor_1001_visor_solid.png");
+			else       headHide(headCopy, 12);
+		}
+		else
+		{
+			if (visor) headSkin(headCopy, 8, "doomslayer_helmet_visor_set3_hq_skin.png"); else headHide(headCopy, 8);
+			if (helm)  { headSkin(headCopy,  9, "doomslayer_helmet_set3_skin.png");
+			             headSkin(headCopy, 10, "doomslayer_helmet_interior_set3_skin.png"); }
+			else       { headHide(headCopy, 9); headHide(headCopy, 10); }
+			if (head)  { headSkin(headCopy, 11, "doomslayer_hair.png");
+			             headSkin(headCopy, 12, "doomslayer_head.png");
+			             headSkin(headCopy, 13, "doomslayer_teeth.png");
+			             headSkin(headCopy, 14, "doomslayer_eyes.png"); }
+			else       { headHide(headCopy, 11); headHide(headCopy, 12);
+			             headHide(headCopy, 13); headHide(headCopy, 14); }
+		}
+		placeActor(pawn, headCopy, RSLOT_BODY);
+	}
+
+	// THE PAWN'S OWN SPRITE IS NOT WANTED WHILE YOU ARE WEARING A BODY.
+	//
+	// It is the stock marine, drawn at the pawn's feet, and it interferes with the
+	// body that has replaced it -- most visibly in the mirror, where the viewpoint is
+	// the mirror camera rather than your eyes, so the engine's own "do not draw the
+	// thing you are looking out of" rule does not apply and the sprite comes back.
+	//
+	// Tracked rather than set every tic: a render style write per tic on the pawn is
+	// pointless churn, and remembering the state is what lets it be put back exactly
+	// when the whole body comes off.
+	//
+	// NETPLAY, STATED PLAINLY: this writes the pawn's render style, and this rig runs
+	// for players[consoleplayer] only -- so on each machine each player hides their
+	// OWN pawn, and in co-op everyone would vanish for everyone. That is survivable
+	// only because the body rig is already consoleplayer-only and no other player has
+	// a body at all yet. When the body becomes per-player this must become a
+	// non-replicated, render-only hide, not a playsim write. Flagged, not forgotten.
+	private bool pawnHidden;
+
+	private void syncPawnSprite(PlayerPawn pawn)
+	{
+		if (!pawn) return;
+		bool want = (parts[RSLOT_BODY] != null) && cvb("rs_body_hide_pawn", true);
+		if (want == pawnHidden) return;
+		pawnHidden = want;
+		if (want) pawn.A_SetRenderStyle(0.0, STYLE_None);
+		else      pawn.A_SetRenderStyle(1.0, STYLE_Normal);
+	}
+
+	// ---- the mirror -------------------------------------------------------
+	//
+	// See the header of body_mirror.zs for why this is a panel and not a chase
+	// camera. Short version: a chase camera in VR orbits when you turn your head,
+	// and that is what makes people ill. A mirror moves nothing.
+	//
+	// Put up in front of you on a keypress, taken away on the next one.
+	private Actor mirProp, mirCam;
+
+	private void toggleMirror(PlayerPawn pawn)
+	{
+		if (mirProp || mirCam)
+		{
+			if (mirProp) mirProp.Destroy();
+			if (mirCam)  mirCam.Destroy();
+			mirProp = null; mirCam = null;
+			Console.Printf("\c[Gold]RS_VRBody: mirror away.");
+			return;
+		}
+		if (!pawn) return;
+
+		double dist = clamp(cvf("rs_body_mirror_dist", 96.0), 32.0, 400.0);
+		double yaw  = pawn.angle;
+		Vector3 at  = (pawn.pos.X + cos(yaw) * dist,
+		               pawn.pos.Y + sin(yaw) * dist,
+		               pawn.pos.Z + cvf("rs_body_mirror_up", 34.0));
+
+		// THE CAMERA STANDS OFF THE PANEL, and this is not a detail.
+		//
+		// Both were spawned at the same point, so the camera sat INSIDE its own quad --
+		// and that quad is deliberately double sided, so the camera was staring at the
+		// back of the very surface it paints. The panel and the scene behind it then win
+		// the depth test in alternate frames, which is exactly "flickers like super fast,
+		// grey texture and back to mirror". A few units toward the player puts the
+		// camera clear of its own geometry.
+		double back = clamp(cvf("rs_body_mirror_standoff", 8.0), 2.0, 48.0);
+		Vector3 camAt = (at.X - cos(yaw) * back, at.Y - sin(yaw) * back, at.Z);
+
+		mirProp = Actor.Spawn("RS_VRMirror", at);
+		mirCam  = Actor.Spawn("RS_VRMirrorCam", camAt);
+		if (!mirProp || !mirCam) { Console.Printf("\c[Red]RS_VRBody: mirror could not spawn."); return; }
+
+		// The panel faces back down the line it was placed along, so it is square
+		// to you the moment it appears.
+		mirProp.angle = yaw + 180;
+		mirCam.angle  = yaw + 180;
+		TexMan.SetCameraToTexture(mirCam, "RSMIRROR", clamp(cvf("rs_body_mirror_fov", 70.0), 30.0, 140.0));
+		Console.Printf("\c[Gold]RS_VRBody: mirror up. Press again to send it away.");
+	}
+
+	// The camera TRACKS you rather than staring straight ahead, so you stay in
+	// frame while you walk about, crouch and lean -- which is the entire point of
+	// having it. A true reflection would lose you the moment you stepped aside.
+	private void tickMirror(PlayerPawn pawn)
+	{
+		if (!mirCam || !pawn) return;
+		Vector3 head = pawn.HmdPos;
+		if (head == (0, 0, 0)) head = (pawn.pos.X, pawn.pos.Y, pawn.pos.Z + pawn.Height * 0.8);
+		Vector3 d = (head.X - mirCam.pos.X, head.Y - mirCam.pos.Y, head.Z - mirCam.pos.Z);
+		double flat = sqrt(d.X * d.X + d.Y * d.Y);
+		if (flat < 1.0) return;
+		mirCam.angle = atan2(d.Y, d.X);
+		mirCam.pitch = -atan2(d.Z, flat);
+	}
+
+	// ---- leaning: the spine actually bends --------------------------------
+	//
+	// THE BODY ALREADY MOVES WHEN YOU LEAN and that is not the same thing. Every seat
+	// is measured off HmdPos, so ducking or leaning slides the whole marine along with
+	// your head -- rigid, like a statue on rails. What is missing is the BEND: a person
+	// leaning pivots at the waist, and their feet stay where they were.
+	//
+	// So the lean is the gap between where your head IS and where it would be if you
+	// were standing straight over your own feet. The pawn is that plumb line: it does
+	// not move when you lean in room scale, your head does. Resolve the difference into
+	// the body's own axes and it is forward/back and side lean directly.
+	//
+	// THE AXES ARE MEASURED, exactly as the fingers' hinge was, and this rig is as clean
+	// as it gets -- bip_spine_0, _1 and _2 all report local Z along the spine at +1.00
+	// and local Y across the shoulders at +1.00, to two decimals, with X the remainder:
+	//
+	//     local Y  the shoulder axis  -> leaning FORWARD and BACK turns about it
+	//     local X  forward            -> leaning SIDEWAYS turns about it
+	//     local Z  up the spine       -> twist, left alone here
+	//
+	// Spread over the three spine bones rather than hinging one, because a spine bends
+	// as a curve and a single joint bending 30 degrees is a person snapping in half.
+	// Both signs are sliders for the same reason the fingers' was: the axis is geometry
+	// and I can measure it, the direction is a convention I cannot see from out here.
+
+	private void tickLean(PlayerPawn pawn)
+	{
+		Actor b = parts[RSLOT_BODY];
+		if (!b || !cvb("rs_body_lean", true)) return;
+		bool praetor = (cvs("rs_body_whole_style", "marine") == "praetor");
+
+		// Your head against your own plumb line, in the body's axes.
+		double dx = pawn.HmdPos.X - pawn.pos.X;
+		double dy = pawn.HmdPos.Y - pawn.pos.Y;
+		double fx = cos(mBodyYaw), fy = sin(mBodyYaw);
+		double rx = sin(mBodyYaw), ry = -cos(mBodyYaw);
+		double fwd  = dx * fx + dy * fy;
+		double side = dx * rx + dy * ry;
+
+		// Map units of head travel that count as a full lean, then degrees per bone.
+		double span = MAX(1.0, cvf("rs_body_lean_span", 14.0));
+		double maxD = cvf("rs_body_lean_max", 26.0);
+		double sgnF = cvf("rs_body_lean_sign_fwd", 1.0);
+		double sgnS = cvf("rs_body_lean_sign_side", 1.0);
+		double dur  = cvf("rs_body_lean_ease", 3.0);
+
+		// SPREAD OVER HOWEVER MANY SPINE BONES THIS RIG HAS -- four on the Praetor, three
+		// on the marine. Dividing by the count keeps the TOTAL bend the same on both, so
+		// the slider means one thing regardless of who is worn.
+		int    bones = praetor ? 4 : 3;
+		double pitchDeg = clamp(fwd  / span, -1.0, 1.0) * maxD * sgnF / bones;
+		double rollDeg  = clamp(side / span, -1.0, 1.0) * maxD * sgnS / bones;
+
+		// THE AXES ARE THIS RIG'S, MEASURED, and the two rigs disagree -- which is the
+		// whole reason this is a table and not a constant. Against the shoulder line the
+		// marine's spine bones read local Y at +1.00; the Praetor's read local Z at
+		// +1.00. So forward/back turns about Y on one and Z on the other, and the
+		// sideways axis is whichever of the remaining two is forward.
+		if (praetor)
+		{
+			Vector3 axF = (0, 0, 1), axS = (0, 1, 0);
+			leanBone(b, 'ValveBiped.Bip01_Spine',  axF, axS, pitchDeg, rollDeg, dur);
+			leanBone(b, 'ValveBiped.Bip01_Spine1', axF, axS, pitchDeg, rollDeg, dur);
+			leanBone(b, 'ValveBiped.Bip01_Spine2', axF, axS, pitchDeg, rollDeg, dur);
+			leanBone(b, 'ValveBiped.Bip01_Spine4', axF, axS, pitchDeg, rollDeg, dur);
+		}
+		else
+		{
+			Vector3 axF = (0, 1, 0), axS = (1, 0, 0);
+			leanBone(b, 'bip_spine_0', axF, axS, pitchDeg, rollDeg, dur);
+			leanBone(b, 'bip_spine_1', axF, axS, pitchDeg, rollDeg, dur);
+			leanBone(b, 'bip_spine_2', axF, axS, pitchDeg, rollDeg, dur);
+		}
+	}
+
+	// One spine bone: forward/back about the shoulder axis, sideways about forward.
+	// Silent on a bone this rig does not carry, for the same reason curlFinger is.
+	private void leanBone(Actor b, Name j, Vector3 axFwd, Vector3 axSide, double pitchDeg, double rollDeg, double dur)
+	{
+		if (!b || b.GetBoneIndex(j) < 0) return;
+		Quat q = Quat.AxisAngle(axFwd, pitchDeg) * Quat.AxisAngle(axSide, rollDeg);
+		b.SetNamedBoneRotation(j, q, SB_ADD, dur);
+	}
+
+	// ---- the body's own fingers -------------------------------------------
+	//
+	// EACH HAND HAS 22 JOINTS AND NOTHING HAS EVER POSED THEM. RS_WorldHands poses the
+	// GLOVE's fingers out of a 1705-frame pose library baked into hand_left_poses.iqm,
+	// and a whole body HIDES that glove -- so the posing went with it and the body's
+	// own fingers have been rigid since the day it shipped. The rig was never the
+	// problem: thumb, index, middle, ring and pinky, three segments each, both hands.
+	//
+	// THE GLOVE'S POSES CANNOT BE COPIED, for two separate reasons. They are animation
+	// FRAMES, and this body has one frame and zero frame channels -- no animation at
+	// all to hold them in. And ZScript cannot read another model's animated joint
+	// rotations anyway; the bone getters answer the bind pose plus explicit offsets,
+	// not what an animation is doing. So the fingers are DRIVEN, not copied.
+	//
+	// THE HINGE IS MEASURED, NOT GUESSED. Every finger bone on this rig runs down its
+	// own local -Z -- all five fingers, both segments, to three decimals -- and the
+	// knuckle spread from index to pinky lands on local X at -0.94 to -0.995 with Y at
+	// essentially zero. So local X is the hinge, and it is the hinge for the whole hand.
+	// Quat.AxisAngle states that axis outright rather than going through Euler angles,
+	// so there is no yaw/pitch/roll convention to be wrong about.
+	//
+	// WHICH WAY IT BENDS IS A SLIDER, DELIBERATELY. The axis is geometry and I can
+	// measure it; the SIGN is a convention I cannot see from here, and fingers that
+	// bend backwards are worse than fingers that do not bend at all. rs_body_finger_sign
+	// flips the whole hand in one move, in the headset, without a rebuild.
+	//
+	// Safe against the arm solve: the chain owns the upper arm, forearm and WRIST only.
+	// Fingers hang under the wrist, so nothing here fights the solver -- and when the
+	// wrist turns, the fingers ride it, which is what a wrist turning means.
+	const FING_A0 = 65.0;	// knuckle, degrees at full curl
+	const FING_A1 = 75.0;	// middle -- a real hand closes most here, so these differ
+	const FING_A2 = 55.0;	// tip
+
+	private Service gripSv;
+	private int     gripSvWait;
+
+	// The SAME arbiter the holsters ask, as a READER. Not a second grip system: it
+	// owns the answer, this only wants to know it. Absent (RS_WorldHands not loaded)
+	// simply means the hands never read as holding, and the fingers rest.
+	private void gripServiceFind()
+	{
+		if (gripSv) return;
+		if (gripSvWait > 0) { gripSvWait--; return; }
+		ServiceIterator it = ServiceIterator.Find("RS_GripArbiter");
+		Service sv;
+		while (sv = it.Next())
+		{
+			if (sv.GetInt("grip.hello", "", 0, 0, null, 'RS_VRBody') == 1) { gripSv = sv; break; }
+		}
+		if (!gripSv) gripSvWait = 350;
+	}
+
+	private bool handHolds(PlayerPawn pawn, int hand)
+	{
+		if (!gripSv) return false;
+		return gripSv.GetInt("grip.held", "", hand, 0, pawn, 'RS_VRBody') == 1;
+	}
+
+	// One finger, three segments, curled about the measured hinge. The axis is a
+	// parameter because the two rigs DO NOT SHARE ONE: the marine hinges on local X,
+	// the Praetor on local Z. Each measured off its own skeleton, neither assumed from
+	// the other -- they are different rigs from different games and the only reason to
+	// expect them to agree would be hope.
+	//
+	// SILENT ON A BONE THAT IS NOT THERE. A caller can legitimately hand this a rig
+	// without the joint: an RS glove worn on a Praetor body is exactly that, and so is
+	// any body variant with a simpler hand. Checking beats finding out at runtime.
+	private void curlFinger(Actor b, Vector3 axis, Name j0, Name j1, Name j2, double curl, double sign, double dur)
+	{
+		if (!b || b.GetBoneIndex(j0) < 0) return;
+		b.SetNamedBoneRotation(j0, Quat.AxisAngle(axis, sign * FING_A0 * curl), SB_ADD, dur);
+		b.SetNamedBoneRotation(j1, Quat.AxisAngle(axis, sign * FING_A1 * curl), SB_ADD, dur);
+		b.SetNamedBoneRotation(j2, Quat.AxisAngle(axis, sign * FING_A2 * curl), SB_ADD, dur);
+	}
+
+	// THE PRAETOR'S FIVE, ON THE ACTOR THAT ACTUALLY DRAWS THAT HAND.
+	//
+	// His fingers are not on his body. praetor_body.iqm carries the entire 83-joint
+	// ValveBiped skeleton -- both hands and all fifteen finger joints a side -- and NO
+	// hand geometry at all. The meshes are separate actors riding that same skeleton:
+	// praetor_hand_rt.iqm on the main hand, _lf on the off hand (MODELDEF). So the
+	// bones have to be turned THERE or nothing is seen to move, which is also why the
+	// body-actor path below would have posed thin air for him.
+	//
+	// ValveBiped numbers fingers 0 thumb, 1 index, 2 middle, 3 ring, 4 pinky, each with
+	// two more joints suffixed 1 and 2.
+	private void curlPraetorHand(Actor h, bool rightMesh, double curl, double sign, double dur, double thumb)
+	{
+		Vector3 ax = (0, 0, 1);		// measured: knuckle spread lands on local Z, +0.83..+0.99
+		if (rightMesh)
+		{
+			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger1', 'ValveBiped.Bip01_R_Finger11', 'ValveBiped.Bip01_R_Finger12', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger2', 'ValveBiped.Bip01_R_Finger21', 'ValveBiped.Bip01_R_Finger22', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger3', 'ValveBiped.Bip01_R_Finger31', 'ValveBiped.Bip01_R_Finger32', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger4', 'ValveBiped.Bip01_R_Finger41', 'ValveBiped.Bip01_R_Finger42', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger0', 'ValveBiped.Bip01_R_Finger01', 'ValveBiped.Bip01_R_Finger02', curl * thumb, sign, dur);
+		}
+		else
+		{
+			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger1', 'ValveBiped.Bip01_L_Finger11', 'ValveBiped.Bip01_L_Finger12', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger2', 'ValveBiped.Bip01_L_Finger21', 'ValveBiped.Bip01_L_Finger22', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger3', 'ValveBiped.Bip01_L_Finger31', 'ValveBiped.Bip01_L_Finger32', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger4', 'ValveBiped.Bip01_L_Finger41', 'ValveBiped.Bip01_L_Finger42', curl, sign, dur);
+			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger0', 'ValveBiped.Bip01_L_Finger01', 'ValveBiped.Bip01_L_Finger02', curl * thumb, sign, dur);
+		}
+	}
+
+	private void tickFingers(PlayerPawn pawn)
+	{
+		Actor b = parts[RSLOT_BODY];
+		if (!b || !cvb("rs_body_fingers", true)) return;
+		bool praetor = (cvs("rs_body_whole_style", "marine") == "praetor");
+
+		gripServiceFind();
+
+		double sign = cvf("rs_body_finger_sign", -1.0);
+		double dur  = cvf("rs_body_finger_ease", 3.0);
+		double grip = cvf("rs_body_finger_curl", 1.0);
+		double rest = cvf("rs_body_finger_rest", 0.15);
+		double thmb = cvf("rs_body_finger_thumb", 0.6);
+
+		// THE PRAETOR IS DRIVEN BY HAND SLOT, THE MARINE BY ARM SLOT, and that is not an
+		// inconsistency. His hand MESHES are fixed: main draws the right hand, off draws
+		// the left (MODELDEF), so which mesh gets which curl follows the controller that
+		// mesh rides, never the arm pairing. The marine's fingers are bones on one body,
+		// so his follow the arm that owns them.
+		if (praetor)
+		{
+			for (int h = 0; h < 2; ++h)
+			{
+				Actor hp = parts[h == 0 ? RSLOT_HAND_MAIN : RSLOT_HAND_OFF];
+				if (!hp) continue;
+				curlPraetorHand(hp, h == 0, handHolds(pawn, h) ? grip : rest, sign, dur, thmb);
+			}
+			return;
+		}
+
+		for (int i = 0; i < 2; ++i)
+		{
+			bool right = (i == 0);
+			// The SAME pairing the arms use, so a hand never closes on the controller
+			// its own arm is not reaching. armHand is the one place that decides this.
+			int hand = armHand(right ? RSLOT_ARM_R : RSLOT_ARM_L);
+			double curl = handHolds(pawn, hand) ? grip : rest;
+			Vector3 ax = (1, 0, 0);		// measured on this rig: knuckle spread lands on local X
+
+			if (right)
+			{
+				curlFinger(b, ax, 'bip_index_0_R',  'bip_index_1_R',  'bip_index_2_R',  curl, sign, dur);
+				curlFinger(b, ax, 'bip_middle_0_R', 'bip_middle_1_R', 'bip_middle_2_R', curl, sign, dur);
+				curlFinger(b, ax, 'bip_ring_0_R',   'bip_ring_1_R',   'bip_ring_2_R',   curl, sign, dur);
+				curlFinger(b, ax, 'bip_pinky_0_R',  'bip_pinky_1_R',  'bip_pinky_2_R',  curl, sign, dur);
+				// THE THUMB IS NOT ON THE OTHERS' HINGE and the measurement says so:
+				// it reads +0.48 on X where the fingers read -0.99, because a thumb is
+				// rotated out of the hand's plane by design. Same axis at a reduced
+				// angle is an approximation, and an honest one -- a real thumb needs its
+				// own measured hinge, which is a separate job with the owner watching.
+				curlFinger(b, ax, 'bip_thumb_0_R',  'bip_thumb_1_R',  'bip_thumb_2_R',  curl * thmb, sign, dur);
+			}
+			else
+			{
+				curlFinger(b, ax, 'bip_index_0_L',  'bip_index_1_L',  'bip_index_2_L',  curl, sign, dur);
+				curlFinger(b, ax, 'bip_middle_0_L', 'bip_middle_1_L', 'bip_middle_2_L', curl, sign, dur);
+				curlFinger(b, ax, 'bip_ring_0_L',   'bip_ring_1_L',   'bip_ring_2_L',   curl, sign, dur);
+				curlFinger(b, ax, 'bip_pinky_0_L',  'bip_pinky_1_L',  'bip_pinky_2_L',  curl, sign, dur);
+				curlFinger(b, ax, 'bip_thumb_0_L',  'bip_thumb_1_L',  'bip_thumb_2_L',  curl * thmb, sign, dur);
+			}
+		}
+	}
+
+	// THE BODY'S OWN ARM, SHOULDER TO WRIST, IN MAP UNITS -- measured off the three
+	// bones the chain actually drives, on the body that is actually worn. -1 when the
+	// rig does not carry them.
+	//
+	// The right arm only: a rig with different-length arms is a broken rig, and asking
+	// twice would only invite a disagreement nobody would know what to do with.
+	//
+	// This reads the ANIMATED pose, not the solved one. The reach chain writes its
+	// result inside the draw, downstream of everything the bone getters can see, so
+	// what comes back here is the arm's own length before the solver stretches it --
+	// which is exactly the question. If it ever starts returning the stretched length
+	// the ratio below collapses to 1.00 and says so rather than lying.
+	private double wholeArmSpan(Actor b)
+	{
+		if (!b) return -1;
+		bool valve = (cvs("rs_body_whole_style", "marine") == "praetor");
+		Name up, mid, wrist;
+		if (valve)
+		{
+			up    = 'ValveBiped.Bip01_R_UpperArm';
+			mid   = 'ValveBiped.Bip01_R_Forearm';
+			wrist = 'ValveBiped.Bip01_R_Hand';
+		}
+		else
+		{
+			up    = 'bip_upperArm_R';
+			mid   = 'bip_lowerArm_R';
+			wrist = 'bip_hand_R';
+		}
+		if (b.GetBoneIndex(up) < 0 || b.GetBoneIndex(mid) < 0 || b.GetBoneIndex(wrist) < 0) return -1;
+		Vector3 ps, pe, pw, ax, ay;
+		[ps, ax, ay] = b.GetNamedBonePosition(up);
+		[pe, ax, ay] = b.GetNamedBonePosition(mid);
+		[pw, ax, ay] = b.GetNamedBonePosition(wrist);
+		return (pe - ps).Length() + (pw - pe).Length();
+	}
+
 	// ARM SIZE FROM YOUR OWN REACH (plan 4b idea 2). Arms straight out to the
 	// sides: the span between the hands, less the shoulders the body draws, halved,
 	// is one arm from shoulder to palm. The Slayer's is 20.147 at size 1 (bones
-	// 8.849 + 8.694, wrist to palm 2.604). Both arm sizes, clamped 0.7..1.5.
-	// Shoulder height is reported, never changed -- the torso is yours.
+	// 8.849 + 8.694, wrist to palm 2.604). Shoulder height is reported, never
+	// changed -- the torso is yours.
+	//
+	// IT USED TO DO NOTHING AT ALL ON A WHOLE BODY. The measurement was right and
+	// then it wrote rs_bp_armright_scale / rs_bp_armleft_scale -- the PART RIG's
+	// arm-actor sizes. A whole body has no arm parts, so on the marine and the
+	// Praetor this command measured you correctly and then threw the answer away.
+	//
+	// A whole body's arms cannot be resized on their own: they are bones in one
+	// mesh, and the only length lever it has is rs_body_whole_height, which scales
+	// the WHOLE model. So this does not write it. That slider means "how tall he is
+	// against how tall you are", and silently driving a height from an arm
+	// measurement would break the thing it is for, on a body the owner has already
+	// fitted. It works the number out and hands it over instead.
+	//
+	// Nothing is lost by reporting rather than writing: the arm chains run in
+	// absolute stretch mode (SetModelReachStretchMode 1), so the palm lands on the
+	// controller at any body size. What the ratio buys is LOOK -- a body whose arms
+	// are close to yours barely stretches, and one that is far off rubber-bands.
 	private void calibrateArms(PlayerPawn pawn)
 	{
 		Vector3 m = pawn.AttackPos;
@@ -1817,14 +2636,38 @@ class RS_VRBodyRig : EventHandler
 		[sf, ssd, su] = shoulderSeat(true);
 		double span  = (m - o).Length();
 		double reach = (span - 2.0 * abs(ssd - sSide[RSLOT_TORSO])) * 0.5;
-		double size  = clamp(reach / 20.147, 0.7, 1.5);
-		setf("rs_bp_armright_scale", size);
-		setf("rs_bp_armleft_scale",  size);
+
+		Console.Printf("\c[Gold]RS_VRBody: hands %.1f apart, so each arm is %.1f shoulder to palm.", span, reach);
+
+		Actor b = parts[RSLOT_BODY];
+		if (b)
+		{
+			double armLen = wholeArmSpan(b);
+			if (armLen <= 0.01)
+			{
+				Console.Printf("\c[Red]  This body's arm bones could not be read, so there is nothing to compare you to.");
+			}
+			else
+			{
+				double h     = cvf("rs_body_whole_height", 1.0); if (h <= 0.05) h = 1.0;
+				double ratio = reach / armLen;
+				Console.Printf("\c[Gold]  The body's own arm is %.1f, so it stretches to %.0f%% of its length to reach you.",
+					armLen, ratio * 100.0);
+				Console.Printf("\c[Gold]  rs_body_whole_height %.2f would match them exactly -- it is %.2f now.", h * ratio, h);
+				Console.Printf("\c[Gold]  Not set for you: that is his HEIGHT as well as his arms, so it is yours to choose.");
+			}
+		}
+		else
+		{
+			// The part rig, unchanged: its arms ARE separate actors, so they can be sized.
+			double size = clamp(reach / 20.147, 0.7, 1.5);
+			setf("rs_bp_armright_scale", size);
+			setf("rs_bp_armleft_scale",  size);
+			Console.Printf("\c[Gold]  Arm size set to %.2f.", size);
+		}
 
 		double shoulderZ = pawn.HmdPos.Z + su;
 		double handsZ    = (m.Z + o.Z) * 0.5;
-		Console.Printf("\c[Gold]RS_VRBody: hands %.1f apart, so each arm is %.1f shoulder to palm -- arm size %.2f",
-			span, reach, size);
 		Console.Printf("\c[Gold]  Your hands are %.1f %s the shoulders the body draws.",
 			abs(handsZ - shoulderZ), (handsZ >= shoulderZ) ? "above" : "below");
 	}
@@ -1940,7 +2783,15 @@ class RS_VRBodyRig : EventHandler
 		// you look at your feet means the engine is not giving the body the head.
 		double pitchNow = Actor.Normalize180(pawn.HmdPitch);
 		int stateNow = (lookFade <= 0.0) ? 0 : ((lookFade >= 1.0) ? 2 : 1);
-		if (!lookLogged || abs(pitchNow - lookLogPitch) >= 10.0 || stateNow != lookLogState)
+		// GATED, because it ARMS ITSELF. This sits in a tic path and fires whenever the
+		// head pitch moves ten degrees or the fade state flips -- so in a headset, just
+		// LOOKING AROUND writes console lines for the rest of the session, with no switch
+		// to stop it. PRINT_NONOTIFY keeps it out of the player's view but not out of the
+		// log. That is the same shape as the diagnostic that crashed the owner's game on
+		// 2026-09-19: the fault was not that it was noisy, it was that nothing had to ask
+		// for it. A diagnostic must be unable to arm itself.
+		if (cvb("rs_body_diag", false)
+			&& (!lookLogged || abs(pitchNow - lookLogPitch) >= 10.0 || stateNow != lookLogState))
 		{
 			lookLogged   = true;
 			lookLogPitch = pitchNow;
@@ -2538,6 +3389,7 @@ class RS_VRBodyRig : EventHandler
 		}
 
 		if (e.Name ~== "rs_body_arm_calibrate") { calibrateArms(pawn); return; }
+		if (e.Name ~== "rs_body_mirror")       { toggleMirror(pawn);  return; }
 		if (e.Name ~== "rs_body_save")  { saveProfile(profileName()); return; }
 		if (e.Name ~== "rs_body_load")  { loadProfile(profileName()); return; }
 		if (e.Name ~== "rs_body_reset")
@@ -2609,6 +3461,13 @@ class RS_VRBodyRig : EventHandler
 		if (!pawn) return;
 
 		ensure();
+		handTargets(pawn);
+		tickFingers(pawn);
+		tickLean(pawn);
+		tickMirror(pawn);
+		syncPawnSprite(pawn);
+		syncHeadCopy(pawn);
+		diagBurst(pawn);
 		pumpProfile();
 		pumpEdit();
 		updateBodyYaw(pawn);

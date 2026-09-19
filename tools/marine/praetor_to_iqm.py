@@ -282,6 +282,32 @@ for bp in BODY_PARTS:
         whole.append(("praetor_%s_%s" % (bp, mat.lower()), matpath(mat), tris))
 write_iqm(os.path.join(OUT, "praetor_body.iqm"), whole)
 report.append("body: %d meshes from %s" % (len(whole), ", ".join(BODY_PARTS)))
+
+# ---- AND THE WHOLE THING, HANDS ATTACHED --------------------------------
+#
+# The split above is kept because the files are referenced, but it is not what the
+# owner asked for and it is not what ships. Their standing order is a COMPLETE,
+# UNIFIED model -- "do not cut them up" -- and while the Praetor's hands were never
+# CUT (they arrived as their own bodyparts), separate files give exactly the result
+# that order was meant to prevent: hands that are separate actors, positioned by the
+# controller, with no body-space place of their own. Rendering the body alone drew it
+# with no hands at all, and rendering the hand files beside it put them at its FEET,
+# because each was re-origined at its own palm.
+#
+# So: one file, hands included, ORIGIN left at zero so every part keeps the body's own
+# coordinates. Same shape as marine_whole.iqm.
+allparts = list(whole)
+for want_model in HANDS:
+    S, side = HANDS[want_model]
+    for mo_name, mat, tris in bodypart_meshes("hand"):
+        if mo_name.lower() != want_model:
+            continue
+        allparts.append(("praetor_hand_%s_%s" % (S, mat.lower()), matpath(mat), tris))
+write_iqm(os.path.join(OUT, "praetor_whole.iqm"), allparts)
+report.append("WHOLE: %d meshes -- body + both hands, attached, in body coordinates"
+              % len(allparts))
+for i, (nm, _mp, _t) in enumerate(allparts):
+    report.append("   surface %2d  %s" % (i, nm))
 report.append("NOTHING WAS CUT -- the hands were already their own bodyparts")
 open(os.path.join(OUT, "praetor_report.txt"), "w").write(chr(10).join(report) + chr(10))
 print(chr(10).join(report))

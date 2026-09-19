@@ -1,0 +1,19 @@
+// ==========================================================================
+// THE MIRROR'S SURFACE.
+//
+// A camera texture: the scene rendered from a viewpoint actor, straight onto a
+// model's skin. That is the whole trick behind being able to LOOK AT YOURSELF.
+//
+// Why a mirror and not a third-person camera: a chase camera in VR rides your
+// view direction, so turning your head swings the camera through an arc instead
+// of pivoting at your neck. Your inner ear says "I turned my head" and your eyes
+// say "I swung sideways", and that is what makes people ill. A mirror moves
+// NOTHING. Your head still drives your camera; you walk up to a panel and look
+// at it, exactly as you would in a room. See the standing rule beside the recoil
+// work: nothing we compute may move the camera.
+//
+// 512 square: this renders the whole scene again, so it is an on-demand toy for
+// checking the body, never something left switched on.
+// ==========================================================================
+cameratexture RSMIRROR 512 512
+	fit 512 512

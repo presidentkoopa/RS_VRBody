@@ -1,0 +1,26 @@
+# RS_VRBody -- the mirror panel. A flat quad wearing the RSMIRROR camera texture.
+#
+# MODEL FILE ORDER IS (x, z, y): the loader swizzles, so file y becomes world Z
+# (up) and file z becomes world Y (across). Authored here as x=0, y = height,
+# z = width, which lands as an upright panel facing world +X.
+#
+# BOTH WINDINGS ARE EMITTED, four triangles for two visible sides. A one-sided
+# quad that happens to face away is INVISIBLE, and "I see nothing" is the one
+# result that cannot be told apart from "it is broken". Two sides costs two
+# triangles and removes that failure entirely.
+#
+# 64 wide, 96 tall, centred on the actor's origin.
+v 0 -48 -32
+v 0 -48  32
+v 0  48  32
+v 0  48 -32
+vt 0 1
+vt 1 1
+vt 1 0
+vt 0 0
+vn  1 0 0
+vn -1 0 0
+f 1/1/1 2/2/1 3/3/1
+f 1/1/1 3/3/1 4/4/1
+f 1/1/2 3/3/2 2/2/2
+f 1/1/2 4/4/2 3/3/2

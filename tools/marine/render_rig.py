@@ -20,8 +20,14 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-MARINE = r"E:\DOOMWork\RS_VRBody\models\marine\marine_whole.iqm"
-PRAETOR = r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_body.iqm"
+# THE PRAETOR IS THREE FILES, NOT ONE, AND FORGETTING THAT DREW IT WITH NO HANDS.
+# Its hands were already their own bodyparts in the source so they were never cut off --
+# they simply live beside the body. The marine is the opposite: its hands are IN
+# marine_whole.iqm, attached, one mesh. Render a body by loading everything that body is.
+MARINE = [r"E:\DOOMWork\RS_VRBody\models\marine\marine_whole.iqm"]
+PRAETOR = [r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_body.iqm",
+           r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_rt.iqm",
+           r"E:\DOOMWork\RS_VRBody\models\praetor\praetor_hand_lf.iqm"]
 OUT = sys.argv[1] if len(sys.argv) > 1 else "rig.png"
 
 # The joints each reach chain drives, per rig family. These are the arms and legs the
@@ -86,10 +92,22 @@ def load(path):
     return P, N, T, names, [g[:3, 3] for g in G]
 
 
-def render(path, style, W, H, pad=28):
-    P, N, T, names, J = load(path)
+def render(paths, style, W, H, pad=28):
+    if isinstance(paths, str):
+        paths = [paths]
+    P, N, T, names, J = load(paths[0])
     if N is None:
         N = np.zeros_like(P)
+    # Extra parts merge into the same buffers, their triangles re-indexed past what is
+    # already there. Joints come from the first file only -- that is the one carrying the
+    # skeleton the chains are drawn from.
+    for extra in paths[1:]:
+        P2, N2, T2, _n2, _j2 = load(extra)
+        if N2 is None:
+            N2 = np.zeros_like(P2)
+        T = np.vstack([T, T2 + len(P)])
+        P = np.vstack([P, P2])
+        N = np.vstack([N, N2])
     idx = {n: i for i, n in enumerate(names)}
 
     # Straight on, from the front: x across, z up, y into the screen.

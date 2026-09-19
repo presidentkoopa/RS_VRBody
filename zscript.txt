@@ -8,6 +8,7 @@ version "4.15.1"
 
 #include "zscript/body_parts.zs"
 #include "zscript/body_legs.zs"
+#include "zscript/body_mirror.zs"
 #include "zscript/body_rig.zs"
 #include "zscript/body_hands.zs"
 #include "zscript/body_holsters.zs"

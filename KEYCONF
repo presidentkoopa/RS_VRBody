@@ -8,7 +8,12 @@ addkeysection "VR Body" rs_vrbody_keys
 addmenukey "VR Body: placement mode" rs_body_edit
 addmenukey "VR Body: grab (main)"    rs_body_grab_main
 addmenukey "VR Body: grab (off)"     rs_body_grab_off
+addmenukey "VR Body: mirror"         rs_body_mirror
 
 alias rs_body_edit      "netevent rs_body_edit"
 alias rs_body_grab_main "netevent rs_body_grab_main"
 alias rs_body_grab_off  "netevent rs_body_grab_off"
+
+// Summon a panel in front of you showing yourself, and press again to send it
+// away. You cannot see your own legs, back or lean from inside your own head.
+alias rs_body_mirror    "netevent rs_body_mirror"

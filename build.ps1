@@ -13,7 +13,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = $PSScriptRoot
 $out  = Join-Path $root 'RS_VRBody.pk3'
 
-$rootLumps = @('CVARINFO.txt', 'KEYCONF', 'MAPINFO.txt', 'MENUDEF.txt', 'MODELDEF.txt', 'zscript.txt')
+$rootLumps = @('ANIMDEFS.txt', 'CVARINFO.txt', 'KEYCONF', 'MAPINFO.txt', 'MENUDEF.txt', 'MODELDEF.txt', 'zscript.txt')
 
 $files = @()
 foreach ($l in $rootLumps) {
