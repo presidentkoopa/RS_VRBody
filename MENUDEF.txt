@@ -195,9 +195,9 @@ OptionMenu "RS_VRBodyMain"
 	StaticText "Fit him to you", 1
 	Slider    "Height",             "rs_body_whole_height", 0.75, 1.30, 0.01, 2
 	StaticText "What you can see of your own head", 1
-	Option    "Draw your own face",   "rs_body_whole_head",   "YesNo"
-	Option    "Draw your own helmet", "rs_body_whole_helmet", "YesNo"
-	Option    "Draw your own visor",  "rs_body_whole_visor",  "YesNo"
+	Option    "Draw your own face",   "rs_body_show_face",   "YesNo"
+	Option    "Draw your own helmet", "rs_body_show_helmet", "YesNo"
+	Option    "Draw your own visor",  "rs_body_show_visor",  "YesNo"
 	StaticText "His hands are his own, so there is no wrist to line up", "DarkGray"
 	StaticText "and no arm pairing to get wrong. Height and arm length", "DarkGray"
 	StaticText "is the calibration that exists so far.", "DarkGray"
@@ -239,6 +239,11 @@ OptionMenu "RS_VRBodyMain"
 	Option    "Forward lean direction",        "rs_body_lean_sign_fwd", "RSBodyFlipDir"
 	Option    "Sideways lean direction",       "rs_body_lean_sign_side","RSBodyFlipDir"
 	Slider    "Lean ease (tics)",              "rs_body_lean_ease",     0.0, 10.0, 0.5, 1
+	Option    "Lean under a heavy gun",        "rs_body_weight_lean",   "OnOff"
+	StaticText "A heavy gun pulls you forward and you lean back against", "DarkGray"
+	StaticText "it. Guns with no published weight do nothing at all.", "DarkGray"
+	Slider    "  Pounds for a full lean",      "rs_body_weight_span",   4.0, 40.0, 1.0, 0
+	Slider    "  Degrees of it",               "rs_body_weight_max",    0.0, 20.0, 0.5, 1
 	Option    "Feet leave the floor on a jump","rs_legs_jump",          "OnOff"
 	Slider    "  Leg tuck in the air",         "rs_legs_jump_tuck",     0.2, 1.0, 0.02, 2
 	StaticText ""

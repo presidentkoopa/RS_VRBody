@@ -1823,9 +1823,9 @@ class RS_VRBodyRig : EventHandler
 		// three different things to be inside, and one lumped switch meant asking for
 		// either took both. 8 is the visor, 9 and 10 the shell and its interior,
 		// 11..14 hair, face, teeth, eyes.
-		bool head  = cvb("rs_body_whole_head", false);
-		bool helm  = cvb("rs_body_whole_helmet", false);
-		bool visor = cvb("rs_body_whole_visor", false);
+		bool head  = cvb("rs_body_show_face", true);
+		bool helm  = cvb("rs_body_show_helmet", true);
+		bool visor = cvb("rs_body_show_visor", true);
 		int hstate = (head ? 1 : 0) | (helm ? 2 : 0) | (visor ? 4 : 0)
 		           | (cvs("rs_body_whole_style", "marine") == "praetor" ? 8 : 0);
 		if (hstate != wholeHeadState || a != wholeHeadOn)
@@ -2156,9 +2156,9 @@ class RS_VRBodyRig : EventHandler
 	{
 		Actor b = parts[RSLOT_BODY];
 		bool praetor = (cvs("rs_body_whole_style", "marine") == "praetor");
-		bool head  = cvb("rs_body_whole_head",   false);
-		bool helm  = cvb("rs_body_whole_helmet", false);
-		bool visor = cvb("rs_body_whole_visor",  false);
+		bool head  = cvb("rs_body_show_face",   true);
+		bool helm  = cvb("rs_body_show_helmet", true);
+		bool visor = cvb("rs_body_show_visor",  true);
 
 		// THE PRAETOR HAS NO FACE MESH -- he is always helmeted -- so "draw your own
 		// face" has nothing to do on him and only helmet and visor decide whether he
@@ -2360,8 +2360,31 @@ class RS_VRBodyRig : EventHandler
 		// on the marine. Dividing by the count keeps the TOTAL bend the same on both, so
 		// the slider means one thing regardless of who is worn.
 		int    bones = praetor ? 4 : 3;
-		double pitchDeg = clamp(fwd  / span, -1.0, 1.0) * maxD * sgnF / bones;
-		double rollDeg  = clamp(side / span, -1.0, 1.0) * maxD * sgnS / bones;
+		double leanF = clamp(fwd  / span, -1.0, 1.0) * maxD * sgnF;
+		double leanS = clamp(side / span, -1.0, 1.0) * maxD * sgnS;
+
+		// WHAT YOU ARE CARRYING, ADDED HERE rather than written separately. The lean and
+		// the load are the same three bones turning about the same axes, so they are
+		// summed by one writer -- the same rule that keeps the gun's sag inside the
+		// recoil expression instead of fighting it every tic.
+		//
+		// A heavy gun held out in front pulls you FORWARD, and a person carrying it
+		// leans BACK against that to stay over their feet. So the load is subtracted
+		// from the forward lean, not added to it. Held one-handed it also pulls you
+		// toward that side, so the imbalance between the hands rolls the spine.
+		if (cvb("rs_body_weight_lean", true))
+		{
+			weightServiceFind();
+			double rt = heldLbs(pawn, 0);            // main hand
+			double lf = heldLbs(pawn, 1);            // off hand
+			double wspan = MAX(1.0, cvf("rs_body_weight_span", 18.0));
+			double wmax  = cvf("rs_body_weight_max", 9.0);
+			leanF -= clamp((rt + lf) / wspan, 0.0, 1.0) * wmax * sgnF;
+			leanS += clamp((rt - lf) / wspan, -1.0, 1.0) * wmax * 0.5 * sgnS;
+		}
+
+		double pitchDeg = leanF / bones;
+		double rollDeg  = leanS / bones;
 
 		// THE AXES ARE THIS RIG'S, MEASURED, and the two rigs disagree -- which is the
 		// whole reason this is a table and not a constant. Against the shoulder line the
@@ -2433,6 +2456,48 @@ class RS_VRBodyRig : EventHandler
 	// The SAME arbiter the holsters ask, as a READER. Not a second grip system: it
 	// owns the answer, this only wants to know it. Absent (RS_WorldHands not loaded)
 	// simply means the hands never read as holding, and the fingers rest.
+	// ---- what you are carrying, and what it does to your back -------------
+	//
+	// THE GUN SAGS IN THE HAND (RS_VR_Reload's rig.zs, one writer, about the grip) and
+	// THE BODY TAKES THE LOAD. Those are the two halves and they are deliberately in
+	// different packages: the gun's turn belongs beside its recoil, and the spine
+	// belongs here beside the lean. Neither may move a hand -- the arm chains run
+	// absolute stretch, so the wrist lands on the controller no matter what, because
+	// the player's real hand is ground truth.
+	//
+	// Reached BY STRING, never by class name. A hard reference to a class in another
+	// pk3 broke the whole game three separate times across three folder layouts.
+	private Service wgtSv;
+	private int     wgtSvWait;
+
+	private void weightServiceFind()
+	{
+		if (wgtSv) return;
+		if (wgtSvWait > 0) { wgtSvWait--; return; }
+		ServiceIterator it = ServiceIterator.Find("RS_WeaponWeightService");
+		Service sv;
+		while (sv = it.Next())
+		{
+			if (sv.GetInt("weapon.weight.hello", "", 0, 0, null) == 1) { wgtSv = sv; break; }
+		}
+		if (!wgtSv) wgtSvWait = 350;
+	}
+
+	// Pounds in that hand, or 0 for "do not apply weight".
+	//
+	// ASKS `has` FIRST, AND THAT IS THE WHOLE TRAP. 80 of 155 guns state no weight at
+	// all -- plasma, the BFG, the Unmaker, most of HacX -- because inventing eighty
+	// numbers to fill a column would have been worse than leaving it empty. The double
+	// answers 0.0 for those, and 0.0 read as "light" would make every energy weapon
+	// stand you bolt upright while the ballistic ones bend you over.
+	private double heldLbs(PlayerPawn pawn, int hand)
+	{
+		if (!wgtSv || !pawn) return 0;
+		if (wgtSv.GetInt("weapon.weight.has", "", hand, 0, pawn) != 1) return 0;
+		double lbs = wgtSv.GetDouble("weapon.weight.lbs", "", hand, 0, pawn);
+		return lbs > 0 ? lbs : 0;
+	}
+
 	private void gripServiceFind()
 	{
 		if (gripSv) return;
@@ -2446,8 +2511,42 @@ class RS_VRBodyRig : EventHandler
 		if (!gripSv) gripSvWait = 350;
 	}
 
+	// IS THIS HAND CLOSED AROUND SOMETHING?
+	//
+	// ASKS THE POSE SERVICE, NOT THE GRIP ARBITER, and that is the whole fix for "hands
+	// occasionally grip". `grip.held` answers a question that reads almost the same and
+	// is not it: "some mod has a CLAIM on this hand" -- and a claim is a LEASE that dies
+	// after 70 tics unless its owner keeps renewing. Holding a gun does not necessarily
+	// renew anything, so the fingers opened and closed as the lease lapsed and was
+	// retaken. Intermittent, impossible to reproduce on demand, and exactly what he saw.
+	//
+	// pose.holding asks RS_Held, which actually knows. The arbiter stays as a FALLBACK
+	// for an RS_WorldHands older than that key: a stale claim is a worse answer than a
+	// fresh one, and a far better answer than none.
+	private Service poseSv;
+	private int     poseSvWait;
+
+	private void poseServiceFind()
+	{
+		if (poseSv) return;
+		if (poseSvWait > 0) { poseSvWait--; return; }
+		ServiceIterator it = ServiceIterator.Find("RS_HandPoseService");
+		Service sv;
+		while (sv = it.Next())
+		{
+			if (sv.GetInt("pose.hello", "", 0, 0, null, 'RS_VRBody') == 1) { poseSv = sv; break; }
+		}
+		if (!poseSv) poseSvWait = 350;
+	}
+
 	private bool handHolds(PlayerPawn pawn, int hand)
 	{
+		poseServiceFind();
+		if (poseSv)
+		{
+			int h = poseSv.GetInt("pose.holding", "", hand, 0, pawn, 'RS_VRBody');
+			if (h >= 0) return h == 1;   // -1 is "cannot say" -- fall through to the claim
+		}
 		if (!gripSv) return false;
 		return gripSv.GetInt("grip.held", "", hand, 0, pawn, 'RS_VRBody') == 1;
 	}

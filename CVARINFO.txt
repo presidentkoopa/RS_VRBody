@@ -639,9 +639,16 @@ user   float rs_body_whole_height = 1.0;     // scales him to you; 1.0 is his ow
 // WHAT OF YOUR OWN HEAD YOU CAN SEE, one switch each, because they are three
 // different things to be inside. Surfaces 11..14 are the face group, 9 and 10 are
 // the helmet shell and its interior, 8 is the visor.
-user   bool  rs_body_whole_head   = false;   // your own face, hair, teeth, eyes
-user   bool  rs_body_whole_helmet = false;   // the helmet shell and its interior
-user   bool  rs_body_whole_visor  = false;   // the visor alone
+// NEW NAMES, AND THAT IS THE POINT. These used to be rs_body_whole_head/_helmet/_visor
+// and they meant "draw it in my own eyes", which is why every one of them was false and
+// why the owner's ini pins all three to false to this day. They mean the OPPOSITE thing
+// now: the head is its own actor, hidden from the player wearing it and drawn for the
+// mirror and for co-op (MF8_MASTERNOSEE). A cvar whose MEANING changed deserves a name
+// its old value cannot answer -- and shipping a new default on the old name would have
+// reached him as no change at all, because an ini beats any default we ship.
+user   bool  rs_body_show_face   = true;    // face, hair, teeth, eyes -- others see it, you never do
+user   bool  rs_body_show_helmet = true;    // the helmet shell and its interior
+user   bool  rs_body_show_visor  = true;    // the visor alone
 user   string rs_body_whole_style = "marine";
 
 // The mesh fit, read live by the renderer (MODELDEF PlacementCVars rs_bp_marinebody).
@@ -776,3 +783,8 @@ user int   rs_body_wrist_turn  = 0;      // 0 / 90 / 180 / 270 -- the hand's rol
 user float rs_body_wrist_roll_share = 0.6; // how much wrist roll the forearm takes, not the hand
 user bool  rs_body_hide_pawn        = true;  // hide the stock marine sprite while a body is worn
 user float rs_body_mirror_standoff  = 8.0;   // camera clear of its own panel
+// A heavy gun pulls you forward; you lean BACK against it to stay over your feet.
+// Reads RS_WeaponWeightService by string. 80 of 155 guns state no weight and get none.
+user bool  rs_body_weight_lean = true;
+user float rs_body_weight_span = 18.0;   // lb carried for the full backward lean
+user float rs_body_weight_max  = 9.0;    // degrees of it
