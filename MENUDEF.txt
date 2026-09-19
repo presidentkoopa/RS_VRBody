@@ -171,7 +171,10 @@ OptionMenu "RS_VRBodyMain"
 	StaticText ""
 	StaticText "Fit him to you", 1
 	Slider    "Height",             "rs_body_whole_height", 0.75, 1.30, 0.01, 2
-	Option    "Draw your own head", "rs_body_whole_head",   "YesNo"
+	StaticText "What you can see of your own head", 1
+	Option    "Draw your own face",   "rs_body_whole_head",   "YesNo"
+	Option    "Draw your own helmet", "rs_body_whole_helmet", "YesNo"
+	Option    "Draw your own visor",  "rs_body_whole_visor",  "YesNo"
 	StaticText "His hands are his own, so there is no wrist to line up", "DarkGray"
 	StaticText "and no arm pairing to get wrong. Height and arm length", "DarkGray"
 	StaticText "is the calibration that exists so far.", "DarkGray"
@@ -200,6 +203,13 @@ OptionMenu "RS_VRBodyMain"
 	Submenu   "Fit the body to you",             "RS_VRBodySeats"
 	Submenu   "Holsters -- store and draw",      "RS_VRBodyHolsters"
 	Submenu   "The old part rig (parked)",       "RS_VRBodyParts"
+	StaticText ""
+	StaticText "Diagnostics -- off unless you are chasing something.", 1
+	Option    "Reach markers (coloured dots)", "rs_body_reach_markers", "OnOff"
+	StaticText "Red on your main hand, blue on your off hand, green on", "DarkGray"
+	StaticText "every holster it can reach. A holster with no dot is one", "DarkGray"
+	StaticText "the reach test is skipping.", "DarkGray"
+	Option    "Holster log lines",             "rs_body_holster_debug", "OnOff"
 }
 
 // THE MESH'S OWN FIT, read live by the renderer. One set for one body, where the
@@ -266,7 +276,8 @@ OptionMenu "RS_VRBodyParts"
 
 OptionString "RS_BodyWholeStyles"
 {
-	"marine", "Doom marine (Eternal)"
+	"marine",  "Doom marine (Eternal)"
+	"praetor", "Praetor suit (Dark Ages)"
 }
 
 OptionMenu "RS_VRBodySeats"
@@ -304,7 +315,6 @@ OptionMenu "RS_VRBodySeats"
 	Command   "Reload the body",   "netevent rs_body_load"
 	Command   "Print every slot",  "netevent rs_body_dump"
 	StaticText ""
-	Option    "Show reach markers", "rs_body_reach_markers", "OnOff"
 }
 
 OptionMenu "RS_VRBodyFits"

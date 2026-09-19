@@ -1,0 +1,8 @@
+Slayer arm IQM: 1% of triangles have a geometric normal agreeing with the vertex normals
+praetor_hand_rt.iqm: 2 meshes ['praetor_hand_rt_doomslayer_praetor_1013', 'praetor_hand_rt_doomslayer_praetor_1012'], 15062 verts, 22579 tris, winding agreement 0%, 887124 bytes
+hand rt: 2 mesh(es), WHOLE and uncut, origined at the palm (-23.83 -6.34 45.77)
+praetor_hand_lf.iqm: 1 meshes ['praetor_hand_lf_doomslayer_praetor_1013'], 15392 verts, 23163 tris, winding agreement 0%, 907224 bytes
+hand lf: 1 mesh(es), WHOLE and uncut, origined at the palm (23.83 -6.34 45.77)
+praetor_body.iqm: 13 meshes ['praetor_armor_doomslayer_praetor_1003', 'praetor_armor_doomslayer_praetor_1015', 'praetor_armor_doomslayer_praetor_1014', 'praetor_helmet_doomslayer_praetor_1001', 'praetor_helmet_doomslayer_praetor_1011', 'praetor_lower_doomslayer_praetor_1006', 'praetor_lower_doomslayer_praetor_1007', 'praetor_lower_doomslayer_praetor_1005', 'praetor_torso_doomslayer_praetor_1003', 'praetor_torso_doomslayer_praetor_1002', 'praetor_torso_doomslayer_praetor_glass_1001', 'praetor_torso_doomslayer_praetor_1004', 'praetor_visor_doomslayer_praetor_1001_visor_solid'], 40397 verts, 64940 tris, winding agreement 0%, 2410044 bytes
+body: 13 meshes from armor, helmet, lower, torso, visor
+NOTHING WAS CUT -- the hands were already their own bodyparts

@@ -286,3 +286,24 @@ class RS_BodyHandAnchor : RS_BodyPart
 	Default { RenderStyle "None"; Alpha 0; }
 	States { Spawn: TNT1 A -1; Stop; }
 }
+
+// HIS HANDS. Pinned to the controllers by the engine, exactly as every hand in
+// this rig has always been -- FollowMainHand/FollowOffHand in the MODELDEF, the
+// hand frame in the rig. The body's arms then REACH these, which is the order
+// that was always right and that the whole-body mesh briefly inverted.
+class RS_HandMarineMain : RS_BodyPart { Default { +DECOUPLEDANIMATIONS; } States { Spawn: TRSO A -1; Stop; } }
+class RS_HandMarineOff  : RS_BodyPart { Default { +DECOUPLEDANIMATIONS; } States { Spawn: TRSO A -1; Stop; } }
+
+// THE DARK AGES PRAETOR. bigwig's GMod port, 83-joint ValveBiped skeleton, and the
+// second whole body -- which is the one that proves the shape, because adding it was
+// a registry line, a MODELDEF block and a menu entry rather than three days of wrist
+// work. His hands were already their own meshes, so nothing was cut.
+class RS_PartBodyPraetor : RS_BodyWhole {}
+class RS_HandPraetorMain : RS_BodyPart { Default { +DECOUPLEDANIMATIONS; } States { Spawn: TRSO A -1; Stop; } }
+class RS_HandPraetorOff  : RS_BodyPart { Default { +DECOUPLEDANIMATIONS; } States { Spawn: TRSO A -1; Stop; } }
+
+// THE BREATH COPIES. The same body in red, laid over the worn one with a pulsing
+// alpha when health is low. A copy rather than a tint because the pulse has to move
+// every frame and repainting a dozen surfaces per tic to do it would be absurd.
+class RS_PartBodyMarineRed  : RS_BodyWhole {}
+class RS_PartBodyPraetorRed : RS_BodyWhole {}

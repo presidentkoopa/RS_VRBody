@@ -3,7 +3,11 @@
 # EXCEPT the HUD panels pk3, kept here and committed at the owner's call (2026-09-14).
 # Built by E:\DOOMWork\RS_VRPanels\build.ps1 -- quads, a sprite and script only, no
 # Doom Eternal assets. RS_VRBody.pk3 stays ignored: it carries the Slayer arms.
-!RS_VRPanels.pk3
+# MOVED OUT 2026-09-18. The panels package no longer lands here at all -- its
+# build.ps1 writes RS_VRPanels/RS_VRPanels.pk3 and the .zip the load order names,
+# and the stale copy that used to sit here is in _old/stale_panels_copy_2026-09-18.
+# The exception below is kept, dead, only so nobody re-adds the copy to satisfy it.
+# !RS_VRPanels.pk3
 __pycache__/
 *.bak
 
@@ -26,3 +30,10 @@ models/helmet/*.png
 # Classic Slayer download, and the retoned hand skin is matched to it. Same rule: disk and local pk3 only.
 models/marine/*.iqm
 models/marine/*.png
+
+# THE PRAETOR / DARK AGES SLAYER is bigwig's GMod port of the Dark Ages Slayer (the owner's
+# download, 2026-09-18). Exactly the same rule as the marine and the helmet above, and it was
+# MISSING -- 150 MB of ripped meshes and textures sat untracked and would have gone up with the
+# next `git add -A` onto a PUBLIC remote. Disk and local pk3 only; PROVENANCE.md is tracked.
+models/praetor/*.iqm
+models/praetor/*.png

@@ -552,11 +552,70 @@ class RS_VRBodyHolsters : EventHandler
 	}
 
 
-	private static bool handFree(PlayerPawn pawn, int hand)
+	// THERE ARE TWO GRIP ARBITERS AND THIS ASKS BOTH. It used to ask only one.
+	//
+	// The holsters arbitrate through the ENGINE fields -- HolsterClaim*, GripClaim*,
+	// GrabClaim* (actor.h:2501), read by the arbiter in vk_openxrdevice.cpp. Everyone
+	// else -- RS_Held, WM_CatchToEquip, RS_Stabilize, the reload -- arbitrates through
+	// the ZScript RS_GripArbiter Service. The only bridge between the two is that
+	// RS_Held publishes GripClaim* when it holds something.
+	//
+	// AND IT ONLY PUBLISHES WHEN ITS OWN CLAIM WAS GRANTED (rs_held.zs:1363). Denied, it
+	// still takes the object and still carries it -- only the publication is skipped. So
+	// when a second service consumer wins the same squeeze first, the hand is physically
+	// carrying a gravity-grabbed object while GripClaim reads None, this returned TRUE,
+	// and a holster took the very same squeeze for a store. Both systems then acted on
+	// one hand, and the holster's claim flipped tic to tic as the grant flickered. That
+	// is the "catch something with a gun in hand near a holster and the game goes nuts"
+	// the owner reported on 2026-09-19.
+	//
+	// grip.held is exactly the right question and the arbiter documents it as such:
+	// "IS ANYONE HOLDING THIS HAND? Ownership-blind." A holster only ever wants a grip
+	// that nothing else wants, so ownership-blind is precisely the test -- and a lapsed
+	// lease answers 0 on its own, so a consumer that dies holding one cannot wedge the
+	// holsters shut.
+	//
+	// NOT fixed by making RS_Held publish GripClaim when denied: that is the clobbering
+	// bug the ask-first design was built to end.
+	private bool handFree(PlayerPawn pawn, int hand)
 	{
 		int  claim = (hand == 0) ? pawn.GripClaimMain : pawn.GripClaimOff;
 		bool grab  = (hand == 0) ? pawn.GrabClaimMain : pawn.GrabClaimOff;
-		return claim == GRIPSUBJ_None && !grab;
+		if (claim != GRIPSUBJ_None || grab) return false;
+		if (gripArb && gripArb.GetInt("grip.held", "", hand, 0, pawn, 'RS_Holsters') == 1)
+			return false;
+		return true;
+	}
+
+	// ---- the OTHER arbiter's handle -------------------------------------------
+	//
+	// A third copy of this lookup, for the reason rs_held.zs states at length: the
+	// arbiter is reachable by string precisely so neither package names the other, and a
+	// shared helper would hand every consumer a compile-time dependency that is fatal AND
+	// GLOBAL when the file is absent. Three small copies is the correct price.
+	private Service gripArb;
+	private int     gripArbWait;
+
+	const HOL_ARB_RETRY = 350;   // ~10s at 35Hz; a miss re-checks, a hit does not
+	const HOL_ARB_IDENT = 1;     // the arbiter's frozen IDENTITY, never its PROTOCOL
+
+	private void GripArbiterFind()
+	{
+		if (gripArb) return;
+		if (gripArbWait > 0) { gripArbWait--; return; }
+
+		ServiceIterator it = ServiceIterator.Find("RS_GripArbiterService");
+		Service sv;
+		while (sv = it.Next())
+		{
+			// IDENTITY, not presence: ServiceIterator matches on a case-insensitive
+			// SUBSTRING, so a hit is not proof that this is the arbiter.
+			if (sv.GetInt("grip.hello", "", 0, 0, null, 'None') != HOL_ARB_IDENT)
+				continue;
+			gripArb = sv;
+			break;
+		}
+		if (!gripArb) gripArbWait = HOL_ARB_RETRY;
 	}
 
 	// Would a squeeze of this hand do something at this holster right now?
@@ -686,9 +745,10 @@ class RS_VRBodyHolsters : EventHandler
 
 		String why;
 		if (!handFree(pawn, hand))
-			why = String.Format("the grip belongs to something else (GripClaim %d, GrabClaim %d) -- a holster only takes a grip nothing else wants",
+			why = String.Format("the grip belongs to something else (GripClaim %d, GrabClaim %d, service holder %d) -- a holster only takes a grip nothing else wants",
 				hand == 0 ? pawn.GripClaimMain : pawn.GripClaimOff,
-				(hand == 0 ? pawn.GrabClaimMain : pawn.GrabClaimOff) ? 1 : 0);
+				(hand == 0 ? pawn.GrabClaimMain : pawn.GrabClaimOff) ? 1 : 0,
+				gripArb ? gripArb.GetInt("grip.subject", "", hand, 0, pawn, 'RS_Holsters') : -1);
 		else if (nd >= r)
 			why = String.Format("out of reach -- %.1f away, reach is %.1f", nd, r);
 		else if (empty && !stored)
@@ -740,9 +800,54 @@ class RS_VRBodyHolsters : EventHandler
 	// raise resolve inside the call. exactInstance, because this deals in
 	// INSTANCES -- a matched pair, a second fist of the class seated opposite --
 	// and the class test turns those into a silent no-op hand switch.
+	// THE DECISION TRAVELS; THE REACH DOES NOT.
+	//
+	// Drawing from a holster does exactly one thing to the playsim: it moves a
+	// weapon to a hand. Everything else about a holster -- which one you reached,
+	// how close your hand was, the grip, the glow, the prop hanging there -- is
+	// presentation and stays on this machine.
+	//
+	// So this no longer ACTS. It sends, and every machine's applier performs the
+	// same move for the same player. A button press is safe because the INPUT
+	// travels as a usercmd and every machine reaches the same decision; a holster
+	// draw had no such path, and was a gameplay decision nothing else ever heard.
+	//
+	// THE COMMAND CARRIES EVERYTHING THE APPLIER NEEDS:
+	//   the weapon CLASS NAME, not a holster index -- slot contents are local state
+	//   and an applier looking them up would be trusting something it cannot see;
+	//   the hand;
+	//   whether the switch is instant, because that reads a user cvar HERE and the
+	//   applier is forbidden from reading one.
 	private void moveWeaponInstant(PlayerPawn pawn, Weapon w, int hand)
 	{
-		if (instant())
+		if (!pawn || !pawn.player || !w) return;
+		SendNetworkEvent("rs_hol_move:" .. w.GetClassName(), hand, instant() ? 1 : 0, 0);
+	}
+
+	// THE APPLIER. Every machine runs this, for the player the command names.
+	//
+	// Keyed to e.Player and NEVER to consoleplayer: a command about somebody else is
+	// the normal case, not the exception. A weapon the named player does not carry
+	// is a no-op rather than a guess -- a guess is two machines disagreeing again.
+	override void NetworkProcess(ConsoleEvent e)
+	{
+		if (e.Name.Left(12) != "rs_hol_move:") return;
+		if (e.Player < 0 || e.Player >= MAXPLAYERS || !playeringame[e.Player]) return;
+		let pawn = players[e.Player].mo;
+		if (!pawn || !pawn.player) return;
+
+		let w = Weapon(pawn.FindInventory(e.Name.Mid(12)));
+		if (!w) return;                      // not carried here: drop it, never substitute
+
+		applyMoveWeapon(pawn, w, e.Args[0], e.Args[1] != 0);
+	}
+
+	// What every machine runs, for the player named in the command. Reads no cvar,
+	// no controller and no consoleplayer -- if it needed a value, the command
+	// carried it.
+	private void applyMoveWeapon(PlayerPawn pawn, Weapon w, int hand, bool inst)
+	{
+		if (inst)
 		{
 			bool wasSet = (pawn.player.cheats & CF_INSTANTWEAPSWITCH) != 0;
 			pawn.player.cheats |= CF_INSTANTWEAPSWITCH;
@@ -759,7 +864,10 @@ class RS_VRBodyHolsters : EventHandler
 			pawn.MoveWeaponToHand(w, hand, true);
 		}
 
-		ourSwitchTic = (pawn.player.PendingWeapon != WP_NOCHANGE) ? Max(level.time, 1) : 0;
+		// Local bookkeeping for the stuck-switch backstop, and only meaningful on
+		// the machine whose own switch it is.
+		if (pawn.player == players[consoleplayer])
+			ourSwitchTic = (pawn.player.PendingWeapon != WP_NOCHANGE) ? Max(level.time, 1) : 0;
 	}
 
 	// The backstop for a switch of OURS that stopped moving. BringUpWeapon is the
@@ -1118,7 +1226,10 @@ class RS_VRBodyHolsters : EventHandler
 
 		// SWITCHED OFF IS EMPTIED, NOT FROZEN. A gun left in a holster nothing will
 		// draw from is invisible and unselectable; hand them all back to inventory.
-		if (!rig || !cvb("rs_body_holsters", true) || !cvb("rs_body_enabled", true))
+		// NOT gated on rs_body_enabled any more: holsters are yours, not the body's.
+		// See the note at syncSlotPart -- with several bodies to choose from, and with
+		// no body at all a legitimate choice, your guns still hang where you put them.
+		if (!rig || !cvb("rs_body_holsters", true))
 		{
 			withdraw(pawn);
 			releaseAll();
@@ -1137,6 +1248,7 @@ class RS_VRBodyHolsters : EventHandler
 		bool acting = pawn.health > 0 && pawn.player.playerstate == PST_LIVE && !rig.EditModeOn();
 		if (acting)
 		{
+			GripArbiterFind();
 			updateClaims(pawn, rig);
 			handTick(pawn, rig, 0);
 			handTick(pawn, rig, 1);

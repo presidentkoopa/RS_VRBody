@@ -135,6 +135,11 @@ class RS_VRBodyRig : EventHandler
 	Array<Double> sRoll;
 	Array<Double> sScale;
 
+	// The legs. An object rather than more arrays on this class, because the walk
+	// is a state machine with its own per-player state and it has no business
+	// sharing a namespace with the seat table. See body_legs.zs.
+	private RS_VRLegs legs;
+
 	private bool ready;
 	private int  lastEditSlot;
 	private bool warnedSpawn;
@@ -450,7 +455,7 @@ class RS_VRBodyRig : EventHandler
 			level.VRHaptic(mainHand ? 0 : 1, 0.6, 15.0);
 			// DROPPED IS KEPT. A drop that also needed "Save the body" pressed
 			// came back in the old place next launch.
-			saveProfile("vrbody");
+			saveProfile(profileName());
 			showMsg(String.Format("Dropped %s -- saved", slotName(held)));
 			return;
 		}
@@ -810,8 +815,15 @@ class RS_VRBodyRig : EventHandler
 	{
 		// WHOLE BODIES. One line per character, and that is the whole cost of
 		// adding one -- no torso style, no arm pair, no hand variant, no pairing.
-		reg("body",     "marine", "RS_PartBodyMarine");
+		reg("body",     "marine",  "RS_PartBodyMarine");
+		reg("body",     "praetor", "RS_PartBodyPraetor");
+		reg("handmain", "praetor", "RS_HandPraetorMain");
+		reg("handoff",  "praetor", "RS_HandPraetorOff");
 		// The invisible things the whole body's arms reach for -- see RS_BodyHandAnchor.
+		// NO HAND ENTRY FOR THE MARINE. His hands are part of his mesh, so there is
+		// nothing to register and nothing is spawned -- see the note at syncSlotPart.
+		// The classes and their MODELDEF blocks stay on disk unused, because the
+		// split may yet come back if the owner wants pinning more than attachment.
 		reg("handmain", "anchor", "RS_BodyHandAnchor");
 		reg("handoff",  "anchor", "RS_BodyHandAnchor");
 
@@ -894,7 +906,32 @@ class RS_VRBodyRig : EventHandler
 		grabbedMain = -1;
 		grabbedOff = -1;
 		ready = true;
-		loadProfile("vrbody");
+		// FALL BACK TO THE OLD SHARED PROFILE if this body has none of its own yet.
+		// The owner has hand-tuned "vrbody" over weeks; a per-body split that started
+		// everyone from defaults would read as having lost all of it.
+		curProfile = profileName();
+		if (!level.JSONProfileLoad(curProfile)) loadProfile("vrbody");
+		else loadProfile(curProfile);
+	}
+
+	// The profile currently loaded, so a body switch knows what to save back.
+	private string curProfile;
+
+	// Called every tic. A body style change saves the body you are leaving and loads
+	// the one you are arriving at, so neither is ever half-applied.
+	private void pumpProfile()
+	{
+		string want = profileName();
+		if (want == curProfile) return;
+		if (curProfile != "") saveProfile(curProfile);
+		curProfile = want;
+		if (!level.JSONProfileLoad(want))
+		{
+			Console.Printf("\c[Gold]RS_VRBody: no holster layout for \"%s\" yet -- "
+			               "keeping the current one, and it saves under that name.", want);
+			return;
+		}
+		loadProfile(want);
 	}
 
 	override void WorldLoaded(WorldEvent e)
@@ -906,6 +943,7 @@ class RS_VRBodyRig : EventHandler
 		glow[0] = null; glow[1] = null;
 		for (int i = 0; i < 16; ++i) hlCopy[i] = null;
 		breath = null; breathClass = ""; breathAlpha = 0.0; breathPhase = 0.0;
+		wholeHeadOn = null;   // a new body actor wears its MODELDEF skins again
 	}
 
 	// ---- placement -------------------------------------------------------
@@ -959,6 +997,22 @@ class RS_VRBodyRig : EventHandler
 		return (pawn.HmdPos.X + sFwd[s] * fx + sSide[s] * rx,
 		        pawn.HmdPos.Y + sFwd[s] * fy + sSide[s] * ry,
 		        pawn.HmdPos.Z + sUp[s]);
+	}
+
+	// THE WALK. Driven from here rather than from placePart because it is a state
+	// machine that must run exactly once a tic, while placePart runs per slot.
+	//
+	// bodyOrigin is the body slot's own world seat, which is where the MODEL's
+	// origin sits -- and that origin is at the mesh's feet (the marine runs z
+	// 0.002 .. 64.687), so it is the right point to stand the feet around.
+	private void tickLegs(PlayerPawn pawn)
+	{
+		if (!legs || !parts[RSLOT_BODY]) return;
+		if (!cvb("rs_legs_enabled", true)) return;
+		double sc = sScale[RSLOT_BODY];
+		if (sc <= 0.05) sc = 1.0;
+		legs.Tick(pawn, slotWorldAt(pawn, RSLOT_BODY), mBodyYaw, sc,
+		          cvs("rs_body_whole_style", "marine") == "praetor");
 	}
 
 	// WORLD ACTORS. Everything worn lives in the map, not in the HUD bubble.
@@ -1032,8 +1086,26 @@ class RS_VRBodyRig : EventHandler
 			// as RPOSE_OPEN, which is the correct answer for a hand with nothing
 			// to do.
 			int hand = (frame == RFRAME_HAND_MAIN) ? 0 : 1;
-			poseHand(a, hand, clamp(cvi(hand == 0 ? "rs_body_pose_main" : "rs_body_pose_off",
-			                            RPOSE_OPEN), 0, RPOSE_COUNT - 1));
+
+			// HIS HAND HAS ONE FRAME. The pose table answers in the RS hand's
+			// numbering -- 1289..1297 for the manipulation set -- and the marine's
+			// hand IQM carries a single bind frame, so asking the renderer to blend
+			// 1295 to 1295 on a one-frame model is asking for a frame that is not
+			// there. It hung the level at load.
+			//
+			// He gets frame 0 until his hands have poses of their own, which is the
+			// open hand-posing work (SetModelJointDrawPose, a pose as joint rotations
+			// rather than frames). Nothing else about the hand changes.
+			String hcn = a.GetClassName();
+			if (hcn.IndexOf("HandMarine") >= 0)
+			{
+				a.ModelFrame = 0; a.ModelFrameNext = 0; a.ModelFrameLerp = 0.0;
+			}
+			else
+			{
+				poseHand(a, hand, clamp(cvi(hand == 0 ? "rs_body_pose_main" : "rs_body_pose_off",
+				                            RPOSE_OPEN), 0, RPOSE_COUNT - 1));
+			}
 
 			// AND NOTHING ELSE. A follow-hand model gets its whole transform
 			// from GetWeaponTransform at draw time and its MODELDEF
@@ -1287,11 +1359,21 @@ class RS_VRBodyRig : EventHandler
 			// the owner's next load, past a clean -norun check, because a compile
 			// never calls the function. placeArm below has always used this two-step
 			// form, which is why it has always worked.
+			// THE JOINT NAMES ARE THE BODY'S, NOT THE MARINE'S.
+			//
+			// These were hardcoded to bip_upperArm_R and friends, which is id's naming
+			// and exists only on the Eternal marine. The Praetor is a ValveBiped rig,
+			// so on him every one of those lookups would have missed and BOTH ARMS
+			// WOULD HAVE HUNG DEAD -- compiling cleanly, drawing fine, simply never
+			// bending. Two rig families, one table.
+			bool valve = (cvs("rs_body_whole_style", "marine") == "praetor");
 			Name up, mid, wrist, tuning;
 			Vector3 outward, twistRef;
 			if (right)
 			{
-				up = 'bip_upperArm_R'; mid = 'bip_lowerArm_R'; wrist = 'bip_hand_R';
+				up    = valve ? 'ValveBiped.Bip01_R_UpperArm' : 'bip_upperArm_R';
+				mid   = valve ? 'ValveBiped.Bip01_R_Forearm'  : 'bip_lowerArm_R';
+				wrist = valve ? 'ValveBiped.Bip01_R_Hand'     : 'bip_hand_R';
 				tuning = 'rs_armik_rt';
 				outward = (-1, 0, 0);
 				// Measured on this skeleton at its 0.872 scale, by the same method as
@@ -1300,7 +1382,9 @@ class RS_VRBodyRig : EventHandler
 			}
 			else
 			{
-				up = 'bip_upperArm_L'; mid = 'bip_lowerArm_L'; wrist = 'bip_hand_L';
+				up    = valve ? 'ValveBiped.Bip01_L_UpperArm' : 'bip_upperArm_L';
+				mid   = valve ? 'ValveBiped.Bip01_L_Forearm'  : 'bip_lowerArm_L';
+				wrist = valve ? 'ValveBiped.Bip01_L_Hand'     : 'bip_hand_L';
 				tuning = 'rs_armik_lf';
 				outward = (1, 0, 0);
 				twistRef = (-0.1929, 0.6177, -0.7624);
@@ -1328,13 +1412,78 @@ class RS_VRBodyRig : EventHandler
 			// that knows a whole body is worn, and it needs no cvar written, no cvar
 			// declared in two packages, and no change to a mod that may be absent.
 			hideReachedHand(hd, true);
-			// NO SOCKET OFFSET. On the part rig this was where one mesh's wrist had
-			// to be measured onto another's; here the wrist joint and the hand are
-			// the same mesh, so the joint goes to the controller and that is all.
+			// THE CHAIN ENDS AT THE WRIST; THE THING THAT MUST LAND ON YOUR HAND IS THE
+			// PALM. Those are not the same point and the gap is a whole hand.
+			//
+			// The chain's end effector is the THIRD joint given to SetModelReachChain --
+			// bip_hand_R, the WRIST (model_reach.cpp, pose.wrist = MatTranslation(gEnd)).
+			// The aim point is the target's model ORIGIN, and on the RS hand that origin
+			// is its PALM: HANDPALM_joint measured at (0, 0.001, 0.005). So with no
+			// offset the body's WRIST is placed on the player's PALM and the hand carries
+			// on past it by its own wrist-to-palm length -- a little over two inches,
+			// both hands, every frame. Far enough to be wrong at every grab and close
+			// enough to read as intended.
+			//
+			// SetModelReachEndOfs (engine 567fe71f8a) is the fix and it is the RIGHT
+			// side to fix it on: the offset is a property of the rig being DRIVEN and is
+			// stated in ITS units, so no conversion into the hand model's scale is
+			// needed. That conversion is why the previous attempt failed -- the hand
+			// mesh is authored at 100x with a 0.01 root-joint scale, and the (0, 1.47, 0)
+			// that sat here was lifted from the part rig on a misreading. It was never a
+			// palm-to-wrist step: the RS hand's own palm-to-wrist is 9.73 model units,
+			// and the SetModelReachTargetJoint call beside it that seemed to corroborate
+			// it is a different feature entirely (it turns a joint ON THE TARGET, and the
+			// 70 is maxDeg). Deleted rather than tuned.
+			//
+			// MEASURED OFF EACH MESH, not guessed: the palm is the midpoint of the wrist
+			// and the four finger bases, which is the same definition the RS hand's own
+			// HANDPALM sits at. Right and left mirror in x exactly, as a symmetric rig
+			// should.
+			//   marine  1.927 units   praetor 2.009 units
+			// They differ by 0.082 -- about 2.5 mm -- so this is NOT about the two bodies
+			// disagreeing. It is that the number is knowable here and was not knowable on
+			// the target side.
+			//
+			// MODEL ORDER, (file.x, file.z, file.y), CHECKED RATHER THAN ASSUMED: the
+			// twistRef literals above were derived "index minus pinky, in model order",
+			// so recomputing that from the mesh identifies the convention. Swizzled it
+			// lands ~10 degrees off the working literal; unswizzled it is 154 degrees off,
+			// which is backwards. These offsets are written in that same order.
+			// Each branch assigns its own literal. A vector assigned from a ternary of
+			// literals compiles and then aborts the VM on first run -- REGT_ADDROF not
+			// implemented for vectors -- which has cost this rig a live abort once.
+			Vector3 endOfs;
+			if (valve)
+			{
+				if (right) endOfs = (-1.378, -0.938, -1.120);
+				else       endOfs = ( 1.378, -0.938, -1.120);
+			}
+			else
+			{
+				if (right) endOfs = (-0.624, -1.376, -1.195);
+				else       endOfs = ( 0.624, -1.376, -1.195);
+			}
+			a.SetModelReachEndOfs(i, endOfs.x, endOfs.y, endOfs.z);
 			a.SetModelReachTarget(i, hd, (0, 0, 0), (0, -1, 0), (1, 0, 0), 'rs_arm_sock_whole');
 		}
 
-		// YOUR OWN HEAD, OFF BY DEFAULT, BECAUSE YOU ARE INSIDE IT.
+		// ---- and the legs, on chains 2 and 3 -------------------------------
+		// Set up beside the arms so the whole body's rig is established in one
+		// place; the walk itself runs from WorldTick. Torn down when switched off
+		// so the chains do not sit holding joints nothing is driving.
+		bool legsOn = cvb("rs_legs_enabled", true);
+		bool valveStyle = (cvs("rs_body_whole_style", "marine") == "praetor");
+		if (legsOn)
+		{
+			if (!legs) legs = new("RS_VRLegs");
+			legs.Setup(pawn, a, valveStyle);
+		}
+		else if (legs)
+		{
+			legs.Clear(pawn, a);
+		}
+
+		// YOUR OWN HEAD AND HELMET, OFF BY DEFAULT, BECAUSE YOU ARE INSIDE THEM.
 		//
 		// Surfaces 11..14 are the head group -- hair, face, teeth, eyes. Hidden by
 		// pointing their surface skins at a transparent texture rather than by
@@ -1342,14 +1491,58 @@ class RS_VRBodyRig : EventHandler
 		// sees a marine with a head.
 		//
 		// Four calls rather than a local array: `string skins[4]` is C, not ZScript.
-		bool head = cvb("rs_body_whole_head", false);
-		if (head != wholeHeadShown)
+		// APPLIED ON THE FIRST TIC AND ON EVERY NEW BODY ACTOR, not only on a CHANGE.
+		//
+		// This once tested a remembered bool against the cvar with both starting
+		// false, so the swap never fired and the head was never actually hidden -- it
+		// only LOOKED correct, because the default and the remembered value agreed.
+		// The owner spawned inside the marine's face. The state starts at -1 so the
+		// first tic always applies, and a new actor (a level change) comes back with
+		// its MODELDEF skins, so the actor is tracked too and not just the value --
+		// and that actor test is what guarantees the first application.
+		// THE COLOUR, on change only -- a dozen surfaces is not a per-tic cost worth
+		// paying when armour changes a handful of times a level.
+		string want = bodyColour(pawn);
+		string bstyle = cvs("rs_body_whole_style", "marine");
+		if (want != paintedAs || a != paintedOn)
 		{
-			wholeHeadShown = head;
-			headSkin(a, 11, head ? "doomslayer_hair.png"  : "invisible.png");
-			headSkin(a, 12, head ? "doomslayer_head.png"  : "invisible.png");
-			headSkin(a, 13, head ? "doomslayer_teeth.png" : "invisible.png");
-			headSkin(a, 14, head ? "doomslayer_eyes.png"  : "invisible.png");
+			paintedAs = want; paintedOn = a;
+			paintBody(a, bstyle, want);
+			paintHands(bstyle, want);
+		}
+
+		// THREE SWITCHES, NOT ONE. The visor, the helmet shell and your own face are
+		// three different things to be inside, and one lumped switch meant asking for
+		// either took both. 8 is the visor, 9 and 10 the shell and its interior,
+		// 11..14 hair, face, teeth, eyes.
+		bool head  = cvb("rs_body_whole_head", false);
+		bool helm  = cvb("rs_body_whole_helmet", false);
+		bool visor = cvb("rs_body_whole_visor", false);
+		int hstate = (head ? 1 : 0) | (helm ? 2 : 0) | (visor ? 4 : 0)
+		           | (cvs("rs_body_whole_style", "marine") == "praetor" ? 8 : 0);
+		if (hstate != wholeHeadState || a != wholeHeadOn)
+		{
+			wholeHeadState = hstate;
+			wholeHeadOn    = a;
+			// EACH BODY HAS ITS OWN SURFACE NUMBERS, and the Praetor has no face at
+			// all -- the helmet IS his head -- so the face switch has nothing to do
+			// on him and the helmet and visor switches carry it.
+			if (cvs("rs_body_whole_style", "marine") == "praetor")
+			{
+				headSkin(a,  3, helm  ? "doomslayer_praetor_1001.png" : "invisible.png");
+				headSkin(a,  4, helm  ? "doomslayer_praetor_1011.png" : "invisible.png");
+				headSkin(a, 12, visor ? "doomslayer_praetor_1001_visor_solid.png" : "invisible.png");
+			}
+			else
+			{
+				headSkin(a,  8, visor ? "doomslayer_helmet_visor_set3_hq_skin.png" : "invisible.png");
+				headSkin(a,  9, helm  ? "doomslayer_helmet_set3_skin.png"          : "invisible.png");
+				headSkin(a, 10, helm  ? "doomslayer_helmet_interior_set3_skin.png" : "invisible.png");
+				headSkin(a, 11, head  ? "doomslayer_hair.png"  : "invisible.png");
+				headSkin(a, 12, head  ? "doomslayer_head.png"  : "invisible.png");
+				headSkin(a, 13, head  ? "doomslayer_teeth.png" : "invisible.png");
+				headSkin(a, 14, head  ? "doomslayer_eyes.png"  : "invisible.png");
+			}
 		}
 	}
 
@@ -1381,13 +1574,88 @@ class RS_VRBodyRig : EventHandler
 		}
 	}
 
+
+	// ---- what colour the body is ------------------------------------------
+	//
+	// GREEN by default, BLUE with armour on, and a RED copy breathing over the top
+	// when you are nearly dead. The owner's rule, and the same one the part rig ran:
+	// the colour is DECIDED, never chosen from a menu, because it is a readout.
+	//
+	// Applied by swapping the armour surfaces' skins rather than by swapping the
+	// body class, so nothing respawns and nothing loses its interpolation mid-step.
+	private string bodyColour(PlayerPawn pawn)
+	{
+		if (!pawn) return "green";
+		int armour = pawn.CountInv("BasicArmor");
+		return (armour > 0 && cvb("rs_body_armor_color", true)) ? "blue" : "green";
+	}
+
+	// The armour surfaces of each body, and the texture each one wears. Everything
+	// not named here -- glass, visor, the head group -- keeps what MODELDEF gave it.
+	private void paintBody(Actor a, string style, string colour)
+	{
+		string suffix = "_" .. colour .. ".png";
+		if (style == "praetor")
+		{
+			skinIf(a,  0, "doomslayer_praetor_1003" .. suffix);
+			skinIf(a,  1, "doomslayer_praetor_1015" .. suffix);
+			skinIf(a,  2, "doomslayer_praetor_1014" .. suffix);
+			skinIf(a,  5, "doomslayer_praetor_1006" .. suffix);
+			skinIf(a,  6, "doomslayer_praetor_1007" .. suffix);
+			skinIf(a,  7, "doomslayer_praetor_1005" .. suffix);
+			skinIf(a,  8, "doomslayer_praetor_1003" .. suffix);
+			skinIf(a,  9, "doomslayer_praetor_1002" .. suffix);
+			skinIf(a, 11, "doomslayer_praetor_1004" .. suffix);
+		}
+		else
+		{
+			skinIf(a, 1, "doomslayer_torso_set3_skin" .. suffix);
+			skinIf(a, 2, "doomslayer_shoulders_set3_skin" .. suffix);
+			skinIf(a, 3, "doomslayer_arm_right_set3_skin" .. suffix);
+			skinIf(a, 4, "doomslayer_arm_left_set3_skin" .. suffix);
+			skinIf(a, 5, "doomslayer_legs_set3_skin" .. suffix);
+			skinIf(a, 6, "doomslayer_legs_set3_skin" .. suffix);
+		}
+	}
+
+	// His hands wear the suit too, or you get green armour and bronze gauntlets.
+	private void paintHands(string style, string colour)
+	{
+		string suffix = "_" .. colour .. ".png";
+		if (style == "praetor")
+		{
+			if (parts[RSLOT_HAND_MAIN]) { skinIf(parts[RSLOT_HAND_MAIN], 0, "doomslayer_praetor_1013" .. suffix);
+			                              skinIf(parts[RSLOT_HAND_MAIN], 1, "doomslayer_praetor_1012" .. suffix); }
+			if (parts[RSLOT_HAND_OFF])    skinIf(parts[RSLOT_HAND_OFF],  0, "doomslayer_praetor_1013" .. suffix);
+		}
+		else
+		{
+			if (parts[RSLOT_HAND_MAIN]) skinIf(parts[RSLOT_HAND_MAIN], 0, "doomslayer_arm_right_set3_skin" .. suffix);
+			if (parts[RSLOT_HAND_OFF])  skinIf(parts[RSLOT_HAND_OFF],  0, "doomslayer_arm_left_set3_skin" .. suffix);
+		}
+	}
+
+	private void skinIf(Actor a, int surface, string skin)
+	{
+		if (!a) return;
+		string dir = (cvs("rs_body_whole_style", "marine") == "praetor") ? "models/praetor" : "models/marine";
+		a.A_ChangeModel("", 0, "", "", surface, dir, skin, CMDL_USESURFACESKIN, 0, 0, "", "");
+	}
+
+	private string paintedAs;
+	private Actor  paintedOn;
+
 	private void headSkin(Actor a, int surface, string skin)
 	{
 		a.A_ChangeModel("", 0, "", "", surface, "models/marine", skin,
 		                CMDL_USESURFACESKIN, 0, 0, "", "");
 	}
 
-	private bool wholeHeadShown;
+	// No initialiser: ZScript does not allow one on a member. It does not need one
+	// either -- wholeHeadOn starts null and the drawn actor never is, so the first
+	// tic always applies regardless of what this happens to hold.
+	private int wholeHeadState;
+	private Actor wholeHeadOn;
 	private bool wholeWas;
 
 	private void placeArm(PlayerPawn pawn, Actor a, int s)
@@ -1712,17 +1980,28 @@ class RS_VRBodyRig : EventHandler
 
 	private void syncBreath(PlayerPawn pawn)
 	{
-		if (!parts[RSLOT_TORSO])
+		// WHICHEVER BODY IS WORN. This used to look only at the torso SLOT, which a
+		// whole body leaves empty -- so the breath was silently dead the moment the
+		// whole body went in, and near-death read exactly like full health.
+		//
+		// (A stray `wholeHeadOn = null` also sat in this early return, re-applying
+		// every head and colour skin EVERY TIC in whole-body mode. It belongs in
+		// WorldLoaded, where a new actor really does need its skins back, and that is
+		// where it now is.)
+		int slot = parts[RSLOT_BODY] ? RSLOT_BODY : RSLOT_TORSO;
+		if (!parts[slot])
 		{
 			if (breath) breath.Destroy();
 			breath = null; breathClass = ""; breathAlpha = 0.0; breathPhase = 0.0;
 			return;
 		}
 
-		string worn = partClass[RSLOT_TORSO];
+		string worn = partClass[slot];
 		string want = "RS_PartTorsoRed";
-		if (worn.IndexOf("TorsoMarine") >= 0) want = "RS_PartTorsoMarineRed";
-		else if (worn.IndexOf("Vest") >= 0)   want = "RS_PartVestRed";
+		if (slot == RSLOT_BODY)
+			want = (worn.IndexOf("Praetor") >= 0) ? "RS_PartBodyPraetorRed" : "RS_PartBodyMarineRed";
+		else if (worn.IndexOf("TorsoMarine") >= 0) want = "RS_PartTorsoMarineRed";
+		else if (worn.IndexOf("Vest") >= 0)        want = "RS_PartVestRed";
 		int below = max(1, cvi("rs_body_breathe_below", 25));
 		int hp    = pawn.Health;
 
@@ -1760,10 +2039,10 @@ class RS_VRBodyRig : EventHandler
 			breath = Actor.Spawn(cls, pawn.Pos, NO_REPLACE);
 			if (!breath) return;
 			breath.A_ChangeModel("", 0, "", "", 0, "", "", 0, 0, 0, "", "");
-			placeActor(pawn, breath, RSLOT_TORSO);
+			placeActor(pawn, breath, parts[RSLOT_BODY] ? RSLOT_BODY : RSLOT_TORSO);
 			breath.ClearInterpolation();
 		}
-		placeActor(pawn, breath, RSLOT_TORSO);
+		placeActor(pawn, breath, parts[RSLOT_BODY] ? RSLOT_BODY : RSLOT_TORSO);
 		// Scaled by the torso's own look-down fade: a red layer at full
 		// strength over a half-faded chest would read as a red ghost.
 		breath.A_SetRenderStyle(breathAlpha * torsoVisible, STYLE_Translucent);
@@ -1948,7 +2227,20 @@ class RS_VRBodyRig : EventHandler
 		else                                   style = cvs("rs_body_style_" .. kind, "");
 		string want  = lookup(kind, style);
 
-		if (!cvb("rs_body_enabled", true)) want = "";
+		// "BODY OFF" MEANS THE BODY IS NOT DRAWN. IT DOES NOT MEAN YOU LOSE YOUR HOLSTERS.
+		//
+		// This used to wipe EVERY slot, holsters included, so switching the body off
+		// took your guns off your hips with it. That was never right and it gets worse
+		// the moment there is more than one body to choose from: a holster is where
+		// YOUR gun hangs, anchored to your own heading, and it belongs to you rather
+		// than to whichever mesh you happen to be wearing -- or to none.
+		//
+		// So the switch empties only what the body actually DRAWS. Holsters and the
+		// pouch have their own switch, rs_body_holsters, which is the one that should
+		// decide whether you have them.
+		if (!cvb("rs_body_enabled", true)
+		    && !(s >= RSLOT_HOLSTER_0 && s <= RSLOT_HOLSTER_8))
+			want = "";
 
 		// THE WHOLE BODY AND THE PART RIG ARE ALTERNATIVES, NEVER BOTH.
 		//
@@ -1962,19 +2254,55 @@ class RS_VRBodyRig : EventHandler
 		// them -- only the slots the whole body actually replaces.
 		if (cvb("rs_body_whole", true))
 		{
-			// The hands are not emptied, they are made INVISIBLE ANCHORS. The body
-			// draws its own hands; the arms still need an actor on each controller
-			// to reach, and keeping the slot filled is what lets armTarget, the
-			// swap and the sockets work here unchanged.
-			// ...but only when nothing else already owns that hand. RS_WorldHands
-			// owning the hands is the normal case and its hand IS the actor to reach
-			// for, so an anchor on top would be a second thing on the controller.
-			if ((s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF) && !handSlotIsForeign(s))
-				want = "RS_BodyHandAnchor";
+			// THE HANDS ARE HIS, AND THE ENGINE PINS THEM.
+			//
+			// The hand slot holds the marine's own hand model, so it is placed on the
+			// controller through the HAND FRAME -- exact, every frame, whatever the
+			// arm is doing -- and the arm then reaches IT. The whole-body mesh had
+			// that backwards: with the hand inside the body mesh the drawn hand went
+			// wherever the arm's IK solve landed, which is near the controller only
+			// while the arm can reach. That threw away the engine work whose entire
+			// purpose is a hand that is exactly where your hand is.
+			//
+			// This outranks handSlotIsForeign deliberately. RS_WorldHands' hand is
+			// still spawned, still holding and grabbing, and still what the reach
+			// chain aims at; it is only hidden (see wholeBody), so nothing draws twice.
+			// THE HANDS FOLLOW THE BODY -- WHEN THE BODY HAS SEPARATE ONES.
+			//
+			// A body whose hands are PART OF THE MESH registers none, and then no
+			// hand actor is spawned at all: his hands are already on the end of his
+			// arms and a second pair would be two pairs. The Eternal marine is that
+			// case, by the owner's call -- he was split at the wrists so his hands
+			// could be pinned to the controllers, and splitting him made him worse,
+			// so he is one mesh again.
+			//
+			// The Praetor still registers hands, and that is a different thing: his
+			// arrived as their own bodyparts from the author. Nothing of his was cut.
+			//
+			// THE TRADE, stated plainly because it is the owner's to revisit: a hand
+			// inside the mesh cannot be pinned. The engine pins an ACTOR. So his
+			// hands go where his ARMS put them -- near your controller when the arm
+			// can reach, and not when it cannot.
+			if (s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF)
+			{
+				string bstyle = cvs("rs_body_whole_style", "marine");
+				want = lookup(s == RSLOT_HAND_MAIN ? "handmain" : "handoff", bstyle);
+			}
 			else if (s != RSLOT_BODY && wholeBodyReplaces(s)) want = "";
 		}
 		else if (s == RSLOT_BODY) want = "";
-		if (handSlotIsForeign(s))          want = "";
+		// ...UNLESS THE WHOLE BODY IS SUPPLYING THE HAND. This line runs AFTER the
+		// gate above and was wiping the marine's hands to nothing every tic, so they
+		// never spawned at all -- the gate's own comment claimed it outranked this
+		// check and it did not, because this is further down.
+		//
+		// "Foreign" means RS_WorldHands owns the hand SLOT, and normally that is the
+		// right answer: do not draw a second hand on a controller that already has
+		// one. With a whole body it is the wrong answer, because RS_WorldHands' hand
+		// is HIDDEN (wholeBody) and the visible hand is supposed to be his.
+		if (handSlotIsForeign(s) && !(cvb("rs_body_whole", true)
+		    && (s == RSLOT_HAND_MAIN || s == RSLOT_HAND_OFF)))
+			want = "";
 		// AN ARM NEEDS A TORSO TO HANG FROM AND A HAND ACTOR TO REACH. Psprite
 		// hands have no model the engine can put a wrist on, so with none there is
 		// no arm at all rather than one bent at nothing (plan 3a).
@@ -2081,9 +2409,48 @@ class RS_VRBodyRig : EventHandler
 
 	// ---- persistence -----------------------------------------------------
 
+	// HOLSTERS ARE POSABLE PER BODY, AND THAT MEANS TWO LAYERS, NOT ONE.
+	//
+	// A holster seat that is right on the Eternal marine is wrong on the Praetor --
+	// different height, different shoulder width, different hip. So the whole holster
+	// layout belongs to the BODY, not to the player, and switching body must switch it.
+	//
+	// There are two layers to carry and only one of them was ever saved:
+	//   THE SEAT   sFwd/sSide/sUp/yaw/pitch/roll/scale -- where the holster sits on you.
+	//              Written by script into FollowBodyOfs. Already in the profile.
+	//   THE FIT    rs_bp_hol<N>_* -- how the holster's MESH sits in its own slot.
+	//              Read by the RENDERER every frame through PlacementPrefix, which is
+	//              exactly why those sliders move while a menu is open and the seat's
+	//              cannot: script does not run behind a menu and the renderer does.
+	//              NINETY cvars, and every one of them was shared across all bodies.
+	//
+	// Both go in the profile now and the profile is named for the body. Tune the marine,
+	// switch to the Praetor, tune that, switch back: each keeps its own.
+	private string profileName()
+	{
+		string st = cvs("rs_body_whole_style", "marine");
+		if (st == "") st = "marine";
+		return "vrbody_" .. st;
+	}
+
+	// The ten fit values every holster has, in one place so save and load cannot
+	// disagree about the list -- which is the usual way a save/load pair rots.
+	static const String FIT_KEY[] = {
+		"_ofs_x", "_ofs_y", "_ofs_z", "_yaw", "_pitch", "_roll",
+		"_scale", "_scale_x", "_scale_y", "_scale_z" };
+
 	private void saveProfile(string name)
 	{
 		level.JSONProfileBegin();
+		for (int h = 0; h < 9; ++h)
+		{
+			string pre = HOLSTER_PREFIX[h];
+			for (int k = 0; k < FIT_KEY.Size(); ++k)
+			{
+				let c = CVar.FindCVar(pre .. FIT_KEY[k]);
+				if (c) level.JSONProfileSetDouble(pre .. FIT_KEY[k], c.GetFloat());
+			}
+		}
 		for (int s = 0; s < RSLOT_COUNT; ++s)
 		{
 			string k = String.Format("s%d_", s);
@@ -2104,6 +2471,19 @@ class RS_VRBodyRig : EventHandler
 	private void loadProfile(string name)
 	{
 		if (!level.JSONProfileLoad(name)) return;
+		for (int h = 0; h < 9; ++h)
+		{
+			string pre = HOLSTER_PREFIX[h];
+			for (int k = 0; k < FIT_KEY.Size(); ++k)
+			{
+				let c = CVar.FindCVar(pre .. FIT_KEY[k]);
+				// Absent key -> the cvar is LEFT ALONE rather than zeroed. A profile
+				// written before the fit was stored has none of these, and zeroing a
+				// holster's size because an old file is silent about it would throw
+				// away tuning the owner did by hand.
+				if (c) c.SetFloat(level.JSONProfileGetDouble(pre .. FIT_KEY[k], c.GetFloat()));
+			}
+		}
 		for (int s = 0; s < RSLOT_COUNT; ++s)
 		{
 			string k = String.Format("s%d_", s);
@@ -2133,7 +2513,7 @@ class RS_VRBodyRig : EventHandler
 			// A grip already held when it switches on must not also pick something up.
 			prevGripMain = pawn.GripHeldMain;
 			prevGripOff  = pawn.GripHeldOff;
-			if (!editMode && wasHolding) saveProfile("vrbody");
+			if (!editMode && wasHolding) saveProfile(profileName());
 			showMsg(editMode
 				? "PLACEMENT MODE ON -- grip a holster to pick it up, grip again to drop it"
 				: "Placement mode off");
@@ -2158,8 +2538,8 @@ class RS_VRBodyRig : EventHandler
 		}
 
 		if (e.Name ~== "rs_body_arm_calibrate") { calibrateArms(pawn); return; }
-		if (e.Name ~== "rs_body_save")  { saveProfile("vrbody"); return; }
-		if (e.Name ~== "rs_body_load")  { loadProfile("vrbody"); return; }
+		if (e.Name ~== "rs_body_save")  { saveProfile(profileName()); return; }
+		if (e.Name ~== "rs_body_load")  { loadProfile(profileName()); return; }
 		if (e.Name ~== "rs_body_reset")
 		{
 			int es = clamp(cvi("rs_body_edit_slot", 0), 0, RSLOT_COUNT - 1);
@@ -2229,8 +2609,10 @@ class RS_VRBodyRig : EventHandler
 		if (!pawn) return;
 
 		ensure();
+		pumpProfile();
 		pumpEdit();
 		updateBodyYaw(pawn);
+		tickLegs(pawn);
 		if (editMode)
 		{
 			pollGripGrabs(pawn);

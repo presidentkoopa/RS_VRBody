@@ -7,6 +7,7 @@ version "4.15.1"
 // wanted, but a bump changes the rules for every file here at once.
 
 #include "zscript/body_parts.zs"
+#include "zscript/body_legs.zs"
 #include "zscript/body_rig.zs"
 #include "zscript/body_hands.zs"
 #include "zscript/body_holsters.zs"

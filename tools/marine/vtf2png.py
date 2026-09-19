@@ -1,4 +1,4 @@
-"""Decode Source VTF (7.2, DXT5 / DXT1 / BGRA8888 / BGR888, largest mip) to PNG. usage: vtf2png.py OUT_DIR FILE.vtf ..."""
+"""Decode Source VTF (7.2, DXT5 / DXT3 / DXT1 / BGRA8888 / BGR888, largest mip) to PNG. usage: vtf2png.py OUT_DIR FILE.vtf ..."""
 import struct, sys, os
 import numpy as np
 from PIL import Image
@@ -35,6 +35,14 @@ def read_vtf(path):
         need = ((w + 3) // 4) * ((h + 3) // 4) * 8
         return decode_bc(d[len(d) - need:], w, h, False)
     if fmt == 15:
+        need = ((w + 3) // 4) * ((h + 3) // 4) * 16
+        return decode_bc(d[len(d) - need:], w, h, True)
+    # DXT3 (format 14): eight bytes of EXPLICIT four-bit alpha, then a DXT1 colour
+    # block. The colour half decodes exactly as DXT5's does -- same 8-byte layout at
+    # the same offset -- so only the alpha differs, and we are writing an opaque PNG
+    # here anyway. The Praetor's visor and chest glass are the only things that use
+    # it, and without this they resolve to nothing and the mesh is skipped silently.
+    if fmt == 14:
         need = ((w + 3) // 4) * ((h + 3) // 4) * 16
         return decode_bc(d[len(d) - need:], w, h, True)
     if fmt in (12, 16, 3):

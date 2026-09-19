@@ -34,7 +34,7 @@ user string rs_body_style_helmet   = "marine";   // "none" takes it off (2026-09
 user bool  rs_body_armor_color     = true;
 user bool  rs_body_armor_voxel     = true;
 user bool  rs_body_breathe         = true;
-user int   rs_body_breathe_below   = 25;
+user int   rs_body_breathe_below   = 33;
 
 // Looking down. The torso fades to lookdown_alpha as your head pitches past
 // lookdown_start degrees below level, fully faded 25 degrees further down, and
@@ -201,7 +201,10 @@ user float rs_body_yaw_maxpitch = 55.0;   // stop tracking past this look-down
 // ON BY DEFAULT (owner, 2026-09-14). RENAMED from rs_body_markers (default off):
 // a saved ini outranks a default forever, so the new default needed a new name
 // to arrive.
-user bool rs_body_reach_markers = true;
+// DEFAULTS OFF. A reach-test diagnostic that spawned particles EVERY TIC -- red on the main
+// hand, blue on the off hand, green on every holster. The owner saw them in play
+// and asked what they were: it had been on in their game the whole time.
+user bool rs_body_reach_markers = false;
 
 // Size of both Quake hands.
 user float rs_body_hand_scale = 1.0;
@@ -275,7 +278,9 @@ user float rs_body_holster_glow_strength = 0.6;
 
 // [HOLSTER] lines in the log: reach in and out, and for every grip at a holster
 // what it did or exactly why it did nothing.
-user bool  rs_body_holster_debug         = true;
+// DEFAULTS OFF. [HOLSTER] log lines for every reach and every grip. Useful when chasing a
+// holster that will not take; noise in the owner's log the rest of the time.
+user bool  rs_body_holster_debug         = false;
 
 // The stored gun's fit, read by the RENDERER through the prop's PlacementPrefix,
 // so these move it while the menu is open. Trims on top of the automatic
@@ -631,7 +636,12 @@ user float rs_body_yaw_hands_maxstep  = 0.0;    // degrees per tic while the han
 // ============================================================================
 server bool  rs_body_whole        = true;    // the whole body replaces the part rig
 user   float rs_body_whole_height = 1.0;     // scales him to you; 1.0 is his own 64.7 units
-user   bool  rs_body_whole_head   = false;   // draw your own head in first person
+// WHAT OF YOUR OWN HEAD YOU CAN SEE, one switch each, because they are three
+// different things to be inside. Surfaces 11..14 are the face group, 9 and 10 are
+// the helmet shell and its interior, 8 is the visor.
+user   bool  rs_body_whole_head   = false;   // your own face, hair, teeth, eyes
+user   bool  rs_body_whole_helmet = false;   // the helmet shell and its interior
+user   bool  rs_body_whole_visor  = false;   // the visor alone
 user   string rs_body_whole_style = "marine";
 
 // The mesh fit, read live by the renderer (MODELDEF PlacementCVars rs_bp_marinebody).
@@ -656,3 +666,48 @@ user float rs_arm_sock_whole_yaw   = 0.0;
 user float rs_arm_sock_whole_pitch = 0.0;
 user float rs_arm_sock_whole_roll  = 0.0;
 user float rs_arm_sock_whole_scale = 1.0;
+
+// The Praetor's own mesh fit (MODELDEF PlacementCVars rs_bp_praetorbody).
+user float rs_bp_praetorbody_ofs_x   = 0.0;
+user float rs_bp_praetorbody_ofs_y   = 0.0;
+user float rs_bp_praetorbody_ofs_z   = 0.0;
+user float rs_bp_praetorbody_yaw     = 0.0;
+user float rs_bp_praetorbody_pitch   = 0.0;
+user float rs_bp_praetorbody_roll    = 0.0;
+user float rs_bp_praetorbody_scale   = 1.0;
+user float rs_bp_praetorbody_scale_x = 1.0;
+user float rs_bp_praetorbody_scale_y = 1.0;
+user float rs_bp_praetorbody_scale_z = 1.0;
+
+// ---- LEGS THAT STEP -------------------------------------------------------
+// The worn body's legs run reach chains 2 and 3 (the arms hold 0 and 1, and the
+// engine allows four). Everything here is live: the renderer reads the _ik and
+// _sock prefixes every frame, and the walk reads the rest every tic, so a menu
+// open in the headset moves the legs while you watch.
+//
+// USER, not server. How a body walks is what you SEE; it changes no gameplay,
+// and a desktop player with no body at all must not be forced to agree about it.
+user bool  rs_legs_enabled  = true;
+user float rs_legs_stride   = 11.0;   // map units of drift before a foot steps
+user float rs_legs_steptics = 7.0;    // tics a swing takes (~0.2s at 35Hz)
+user float rs_legs_arc      = 3.2;    // how high the swinging foot lifts
+user float rs_legs_lead     = 0.16;   // how far ahead of the body a step lands
+
+// The leg solver's own tuning, same shape as the arms' rs_armik_*. Pole is what
+// decides which way the knee points, and for a leg it is forward -- so pole_out
+// carries it and the other two stay near zero, the opposite of an arm.
+user float rs_legik_rt_pole_out  = 1.0;
+user float rs_legik_rt_pole_down = 0.0;
+user float rs_legik_rt_pole_back = 0.0;
+user float rs_legik_lf_pole_out  = 1.0;
+user float rs_legik_lf_pole_down = 0.0;
+user float rs_legik_lf_pole_back = 0.0;
+// How far a leg may stretch before it gives up and lets the foot slide. A leg
+// that stretches looks worse than one that slips, so this is tighter than an arm's.
+user float rs_legik_rt_stretch_max = 1.02;
+user float rs_legik_lf_stretch_max = 1.02;
+
+// The foot target's own live fit, read by the renderer (PlacementCVars shape).
+user float rs_leg_sock_ofs_x = 0.0;
+user float rs_leg_sock_ofs_y = 0.0;
+user float rs_leg_sock_ofs_z = 0.0;

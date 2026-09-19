@@ -853,7 +853,16 @@ Model RS_PartForearmSlayerLRed
 }
 
 // ============================================================================
-// THE ETERNAL MARINE, WHOLE.
+// THE ETERNAL MARINE, WHOLE -- AND HIS HANDS ARE PART OF HIM.
+//
+// He was briefly split at the wrists so his hands could be their own actors and be
+// PINNED to the controllers, which is how the engine holds a hand exactly where
+// yours is. The owner's call, and it is theirs to make: splitting him made him
+// worse. So he is one mesh again, hands attached, and the hands go where his ARMS
+// put them -- the reach chains ending at bip_hand_R/L.
+//
+// The Praetor keeps separate hands, and that is not the same thing: his came that
+// way from the author as their own bodyparts. Nothing of his was ever cut.
 //
 // One rigged body on its own 152-joint skeleton: helmet, head, torso, shoulder
 // plates, both arms WITH THEIR OWN HANDS, belt, legs and boots. Nothing is cut,
@@ -887,5 +896,152 @@ Model RS_PartBodyMarine
 	SurfaceSkin 0 14 "doomslayer_eyes.png"
 	Scale 1.0 1.0 1.0
 	PlacementCVars rs_bp_marinebody
+	BaseFrame
+}
+
+// ============================================================================
+// THE MARINE'S OWN HANDS, AS THEIR OWN ACTORS.
+//
+// A HAND MUST BE PINNED TO THE CONTROLLER, and the engine pins an ACTOR -- that
+// is what FollowMainHand/FollowOffHand and the weeks of hooks behind them are
+// for. Absorbed into the body mesh the hand went wherever the arm's IK solve
+// put it, which is not the same thing and is not good enough.
+//
+// So they come out again -- but these are HIS hands off HIS arms, cut on one
+// plane with the ring shared vertex for vertex. No socket, no stub, no pairing.
+// ============================================================================
+Model RS_HandMarineMain
+{
+	Path "models/marine"
+	Model 0 "marine_hand_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_right_set3_skin.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_handmain
+	FollowMainHand
+	BaseFrame
+}
+Model RS_HandMarineOff
+{
+	Path "models/marine"
+	Model 0 "marine_hand_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_arm_left_set3_skin.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_handoff
+	FollowOffHand
+	BaseFrame
+}
+
+// ============================================================================
+// THE DARK AGES PRAETOR SUIT, WHOLE.
+//
+// bigwig's GMod port of the Dark Ages Slayer, on its 83-joint ValveBiped
+// skeleton. Scaled 0.874 so he stands 64.71 against the Eternal marine's 64.69 --
+// one set of the owner's body numbers serves both and switching does not reopen
+// the calibration.
+//
+// NOTHING WAS CUT. This model ships its hands as their own bodyparts, and they
+// really are hands: the mesh reaches 10.6 units from the wrist with 61 percent of
+// it inside 6. So they come out whole, as authored.
+//
+// Surfaces: 0-2 armour, 3-4 helmet, 5-7 lower, 8-11 torso, 12 visor. He has no
+// face mesh at all -- the helmet IS his head -- so "draw your own face" has
+// nothing to hide here and the helmet and visor switches do the work.
+// ============================================================================
+Model RS_PartBodyPraetor
+{
+	Path "models/praetor"
+	Model 0 "praetor_body.iqm"
+	SurfaceSkin 0 0  "doomslayer_praetor_1003.png"
+	SurfaceSkin 0 1  "doomslayer_praetor_1015.png"
+	SurfaceSkin 0 2  "doomslayer_praetor_1014.png"
+	SurfaceSkin 0 3  "doomslayer_praetor_1001.png"
+	SurfaceSkin 0 4  "doomslayer_praetor_1011.png"
+	SurfaceSkin 0 5  "doomslayer_praetor_1006.png"
+	SurfaceSkin 0 6  "doomslayer_praetor_1007.png"
+	SurfaceSkin 0 7  "doomslayer_praetor_1005.png"
+	SurfaceSkin 0 8  "doomslayer_praetor_1003.png"
+	SurfaceSkin 0 9  "doomslayer_praetor_1002.png"
+	SurfaceSkin 0 10 "doomslayer_praetor_glass_1001.png"
+	SurfaceSkin 0 11 "doomslayer_praetor_1004.png"
+	SurfaceSkin 0 12 "doomslayer_praetor_1001_visor_solid.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_praetorbody
+	BaseFrame
+}
+
+// HIS HANDS, whole and uncut, each origined at its own palm -- the point the
+// engine pins to your controller, and the same convention the RS hand uses.
+Model RS_HandPraetorMain
+{
+	Path "models/praetor"
+	Model 0 "praetor_hand_rt.iqm"
+	SurfaceSkin 0 0 "doomslayer_praetor_1013.png"
+	SurfaceSkin 0 1 "doomslayer_praetor_1012.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_handmain
+	FollowMainHand
+	BaseFrame
+}
+Model RS_HandPraetorOff
+{
+	Path "models/praetor"
+	Model 0 "praetor_hand_lf.iqm"
+	SurfaceSkin 0 0 "doomslayer_praetor_1013.png"
+	Scale 1.0 1.0 1.0
+	PlacementCVars rs_bp_handoff
+	FollowOffHand
+	BaseFrame
+}
+
+// ==========================================================================
+// THE BREATH. A red copy of the body drawn over the worn one, its alpha pulsed --
+// faster and deeper the closer to death. Not a tint on the body itself, because a
+// tint cannot pulse without repainting every surface every tic.
+// ==========================================================================
+Model RS_PartBodyMarineRed
+{
+	Path "models/marine"
+	Model 0 "marine_whole.iqm"
+	SurfaceSkin 0 0  "doomslayer_head.png"
+	SurfaceSkin 0 1  "doomslayer_torso_set3_skin_red.png"
+	SurfaceSkin 0 2  "doomslayer_shoulders_set3_skin_red.png"
+	SurfaceSkin 0 3  "doomslayer_arm_right_set3_skin_red.png"
+	SurfaceSkin 0 4  "doomslayer_arm_left_set3_skin_red.png"
+	SurfaceSkin 0 5  "doomslayer_legs_set3_skin_red.png"
+	SurfaceSkin 0 6  "doomslayer_legs_set3_skin_red.png"
+	SurfaceSkin 0 7  "doomslayer_legs_set3_skin_red.png"   // same image as the legs; one copy shipped
+	SurfaceSkin 0 8  "doomslayer_helmet_visor_set3_hq_skin.png"
+	SurfaceSkin 0 9  "doomslayer_helmet_set3_skin_red.png"
+	SurfaceSkin 0 10 "doomslayer_helmet_interior_set3_skin.png"
+	SurfaceSkin 0 11 "doomslayer_hair.png"
+	SurfaceSkin 0 12 "doomslayer_head.png"
+	SurfaceSkin 0 13 "doomslayer_teeth.png"
+	SurfaceSkin 0 14 "doomslayer_eyes.png"
+	Scale 1.0 1.0 1.0
+	// The BREATH copy: the same body in red, laid over the worn one and pulsed by alpha.
+	PlacementCVars rs_bp_marinebody
+	BaseFrame
+}
+
+Model RS_PartBodyPraetorRed
+{
+	Path "models/praetor"
+	Model 0 "praetor_body.iqm"
+	SurfaceSkin 0 0  "doomslayer_praetor_1003_red.png"
+	SurfaceSkin 0 1  "doomslayer_praetor_1015_red.png"
+	SurfaceSkin 0 2  "doomslayer_praetor_1014_red.png"
+	SurfaceSkin 0 3  "doomslayer_praetor_1001_red.png"
+	SurfaceSkin 0 4  "doomslayer_praetor_1011_red.png"
+	SurfaceSkin 0 5  "doomslayer_praetor_1006_red.png"
+	SurfaceSkin 0 6  "doomslayer_praetor_1007_red.png"
+	SurfaceSkin 0 7  "doomslayer_praetor_1005_red.png"
+	SurfaceSkin 0 8  "doomslayer_praetor_1003_red.png"
+	SurfaceSkin 0 9  "doomslayer_praetor_1002_red.png"
+	SurfaceSkin 0 10 "doomslayer_praetor_glass_1001.png"
+	SurfaceSkin 0 11 "doomslayer_praetor_1004_red.png"
+	SurfaceSkin 0 12 "doomslayer_praetor_1001_visor_solid.png"
+	Scale 1.0 1.0 1.0
+	// The BREATH copy: the same body in red, laid over the worn one and pulsed by alpha.
+	PlacementCVars rs_bp_praetorbody
 	BaseFrame
 }
