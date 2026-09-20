@@ -1055,6 +1055,7 @@ class RS_VRBodyRig : EventHandler
 		bool haveHmd = (pawn.HmdPos != (0, 0, 0));
 		if (haveHmd)
 		{
+			// Same measurement as tickLean uses, for the same reason -- see the note there.
 			double dx = pawn.HmdPos.X - pawn.pos.X, dy = pawn.HmdPos.Y - pawn.pos.Y;
 			leanNow = sqrt(dx * dx + dy * dy);
 			if (leanNow > diagMaxLean) diagMaxLean = leanNow;
@@ -1133,7 +1134,7 @@ class RS_VRBodyRig : EventHandler
 			level.JSONProfileSetDouble("fingers_on", cvb("rs_body_fingers", true) ? 1 : 0);
 			level.JSONProfileSetDouble("finger_sign", cvf("rs_body_finger_sign", -1.0));
 			// Wrist
-			level.JSONProfileSetDouble("wrist_turn", cvf("rs_body_wrist_turn", 0));
+			level.JSONProfileSetDouble("wrist_turn", cvf("rs_body_wristroll", 270));
 			level.JSONProfileSetDouble("wrist_roll_share", cvf("rs_body_wrist_roll_share", 0.6));
 			// Lean, and how far he actually leaned
 			level.JSONProfileSetDouble("lean_on", cvb("rs_body_lean", true) ? 1 : 0);
@@ -1735,7 +1736,11 @@ class RS_VRBodyRig : EventHandler
 			// ASK drawnHand, NOT the chain's target. Those used to be the same actor and
 			// are not any more: a whole body aims at a marker, and hiding the marker
 			// hides nothing while leaving the glove on screen inside the body's hand.
-			hideReachedHand(drawnHand(slot), true);
+			// (The glove hide used to live HERE and that was wrong -- see hideGloves,
+			// called from the tick. Inside this loop it sits after an early `continue`
+			// that fires whenever a chain cannot be set up, so the one case where the
+			// body's arms are NOT working is exactly the case where the gloves stay
+			// drawn on top of them. Four hands, which is what the owner reported.)
 			// THE CHAIN ENDS AT THE WRIST; THE THING THAT MUST LAND ON YOUR HAND IS THE
 			// PALM. Those are not the same point and the gap is a whole hand.
 			//
@@ -1816,7 +1821,7 @@ class RS_VRBodyRig : EventHandler
 			// reference only has to be off the forward axis to pin the frame, so "up" is an
 			// honest answer here rather than a fitted one.
 			//
-			// WHICH WAY IS UP FOR A HAND IS NOT HONEST TO ASSUME, hence rs_body_wrist_turn.
+			// WHICH WAY IS UP FOR A HAND IS NOT HONEST TO ASSUME, hence rs_body_wristroll.
 			//
 			// The roll reference IS the wrist's roll. The end aim below lands the bone's
 			// frame on the target's, so turning this vector about the pointing axis turns
@@ -1830,7 +1835,28 @@ class RS_VRBodyRig : EventHandler
 			// off the owner's eyes, and a quarter turn found on screen in one keypress
 			// beats a number guessed at from out here.
 			Vector3 twistT;
-			int qt = ((cvi("rs_body_wrist_turn", 0) % 360) + 360) % 360;
+			// A NEW NAME, because the old one is PINNED IN HIS INI AT 0 and an ini beats any
+			// default this package can ship -- so correcting rs_body_wrist_turn would have
+			// reached him as no change at all and left him hunting a menu row. Same trap,
+			// and the same fix, as the head cvars.
+			//
+			// 270 is the default because both hands came out ROTATED 90 DEGREES TO THE
+			// RIGHT: the roll reference needs turning a quarter the other way to cancel it.
+			// AND IT MIRRORS PER HAND, which is the thing that was actually wrong.
+			//
+			// A single global quarter turn made the two hands DISAGREE -- right palm up,
+			// left palm down -- where before they were both palm-down: wrong, but at
+			// least the same. That is the signature of a MIRRORED PAIR being given the
+			// same rotation: the left hand is the right hand reflected, so an identical
+			// turn in the target's frame rolls them opposite ways anatomically. One
+			// number can never suit both, and adding quarter turns to a global was only
+			// ever going to trade one wrong pose for a worse one.
+			//
+			// So the off hand takes the NEGATIVE of the same angle. Now whatever value is
+			// right, both hands stay consistent with each other and the only question left
+			// is the one quarter turn, not four combinations of two hands.
+			int qt = ((cvi("rs_body_wristroll", 0) % 360) + 360) % 360;
+			if (!right) qt = (360 - qt) % 360;
 			if      (qt ==  90) twistT = (0,  0,  1);
 			else if (qt == 180) twistT = (0, -1,  0);
 			else if (qt == 270) twistT = (0,  0, -1);
@@ -2265,29 +2291,44 @@ class RS_VRBodyRig : EventHandler
 			placeActor(pawn, headCopy, RSLOT_BODY);
 			headCopy.ClearInterpolation();
 		}
+		// A HEAD MODEL, NOT A SECOND BODY. THIS IS THE THIRD ATTEMPT AND THE FIRST
+		// ONE THAT CANNOT FAIL THE SAME WAY.
+		//
+		// It used to spawn a copy of the WHOLE body mesh and hide everything that was
+		// not the head -- first via the MODELDEF, then explicitly in script every tic.
+		// Both failed, and the failure mode is brutal: the copy draws a SPARE MARINE
+		// whose arms have no reach chain, so they hang in the rest pose out at the
+		// sides. One body, two meshes, FOUR HANDS, two of them off to the side --
+		// reported three separate times.
+		//
+		// The owner's answer was the right one: make a head model. marine_head.iqm and
+		// praetor_head.iqm are cut from each body's own mesh (tools/marine/iqm_submesh.py)
+		// with the full skeleton kept. THERE ARE NO ARMS IN THE FILE, so there is nothing
+		// to hide and no way for this to put a second pair of hands on screen. A whole
+		// class of bug is gone rather than patched.
+		//
+		// Surfaces renumber with the cut: the marine's 8..14 are now 0..6, and the
+		// Praetor's 3, 4 and 12 are now 0, 1 and 2.
 		if (praetor)
 		{
-			// Measured, not guessed: 3 and 4 are praetor_helmet_* at the top of the
-			// mesh, 12 is praetor_visor_*. Everything else is body and is not in this
-			// MODELDEF at all, so it draws nothing without being told to.
-			if (helm)  { headSkinAt(headCopy, 3, "models/praetor", "doomslayer_praetor_1001.png");
-			             headSkinAt(headCopy, 4, "models/praetor", "doomslayer_praetor_1011.png"); }
-			else       { headHide(headCopy, 3); headHide(headCopy, 4); }
-			if (visor) headSkinAt(headCopy, 12, "models/praetor", "doomslayer_praetor_1001_visor_solid.png");
-			else       headHide(headCopy, 12);
+			if (helm)  { headSkinAt(headCopy, 0, "models/praetor", "doomslayer_praetor_1001.png");
+			             headSkinAt(headCopy, 1, "models/praetor", "doomslayer_praetor_1011.png"); }
+			else       { headHide(headCopy, 0); headHide(headCopy, 1); }
+			if (visor) headSkinAt(headCopy, 2, "models/praetor", "doomslayer_praetor_1001_visor_solid.png");
+			else       headHide(headCopy, 2);
 		}
 		else
 		{
-			if (visor) headSkin(headCopy, 8, "doomslayer_helmet_visor_set3_hq_skin.png"); else headHide(headCopy, 8);
-			if (helm)  { headSkin(headCopy,  9, "doomslayer_helmet_set3_skin.png");
-			             headSkin(headCopy, 10, "doomslayer_helmet_interior_set3_skin.png"); }
-			else       { headHide(headCopy, 9); headHide(headCopy, 10); }
-			if (head)  { headSkin(headCopy, 11, "doomslayer_hair.png");
-			             headSkin(headCopy, 12, "doomslayer_head.png");
-			             headSkin(headCopy, 13, "doomslayer_teeth.png");
-			             headSkin(headCopy, 14, "doomslayer_eyes.png"); }
-			else       { headHide(headCopy, 11); headHide(headCopy, 12);
-			             headHide(headCopy, 13); headHide(headCopy, 14); }
+			if (visor) headSkin(headCopy, 0, "doomslayer_helmet_visor_set3_hq_skin.png"); else headHide(headCopy, 0);
+			if (helm)  { headSkin(headCopy, 1, "doomslayer_helmet_set3_skin.png");
+			             headSkin(headCopy, 2, "doomslayer_helmet_interior_set3_skin.png"); }
+			else       { headHide(headCopy, 1); headHide(headCopy, 2); }
+			if (head)  { headSkin(headCopy, 3, "doomslayer_hair.png");
+			             headSkin(headCopy, 4, "doomslayer_head.png");
+			             headSkin(headCopy, 5, "doomslayer_teeth.png");
+			             headSkin(headCopy, 6, "doomslayer_eyes.png"); }
+			else       { headHide(headCopy, 3); headHide(headCopy, 4);
+			             headHide(headCopy, 5); headHide(headCopy, 6); }
 		}
 		placeActor(pawn, headCopy, RSLOT_BODY);
 	}
@@ -2310,6 +2351,27 @@ class RS_VRBodyRig : EventHandler
 	// a body at all yet. When the body becomes per-player this must become a
 	// non-replicated, render-only hide, not a playsim write. Flagged, not forgotten.
 	private bool pawnHidden;
+
+	// THE GLOVES GO AWAY WHENEVER A WHOLE BODY IS WORN, unconditionally.
+	//
+	// This used to be one line inside the arm-chain loop, which meant it only ran when a
+	// chain was successfully set up. Any early exit in there -- no target, a joint that
+	// does not resolve, a body mid-swap -- skipped it and left RS_WorldHands' gloves drawn
+	// on top of the body's own hands. FOUR HANDS, two overlaid on two, which is precisely
+	// what the mirror showed. The failure mode of the arms should not also be the failure
+	// mode of the gloves.
+	//
+	// So it runs from the tick, off one condition: is a whole body worn. Nothing about
+	// chains, targets or joints can reach it.
+	private void hideGloves(PlayerPawn pawn)
+	{
+		bool whole = (parts[RSLOT_BODY] != null);
+		if (whole == glovesHidden) return;
+		glovesHidden = whole;
+		for (int i = 0; i < 2; ++i)
+			hideReachedHand(drawnHand((i == 0) ? RSLOT_ARM_R : RSLOT_ARM_L), !whole ? false : true);
+	}
+	private bool glovesHidden;
 
 	private void syncPawnSprite(PlayerPawn pawn)
 	{
@@ -2417,9 +2479,34 @@ class RS_VRBodyRig : EventHandler
 		if (!b || !cvb("rs_body_lean", true)) return;
 		bool praetor = (cvs("rs_body_whole_style", "marine") == "praetor");
 
-		// Your head against your own plumb line, in the body's axes.
-		double dx = pawn.HmdPos.X - pawn.pos.X;
-		double dy = pawn.HmdPos.Y - pawn.pos.Y;
+		// YOUR HEAD AGAINST YOUR FEET, NOT AGAINST YOUR PAWN.
+		//
+		// This measured HmdPos against pawn.pos and therefore measured NOTHING. Room-scale
+		// movement calls VR_ApplyRenderMove(player, VRMOVE_ROOMSCALE, ...) EVERY FRAME
+		// (vk_openxrdevice.cpp:5099), so when you lean in your room the PAWN IS DRAGGED
+		// ALONG WITH YOU. The horizontal difference stays about constant no matter how far
+		// you lean, so the bend never fired and the only thing that changed was height --
+		// which is exactly what the owner reported: "all I do is vertically move down".
+		//
+		// The FEET are the thing that stays put. Leaning is your head moving off your base
+		// of support, which is what the planted feet literally are, so this is the honest
+		// measurement rather than a workaround for the pawn following. Falls back to the
+		// pawn when nothing is planted yet -- worthless, as established, but harmless.
+		double baseX = pawn.pos.X, baseY = pawn.pos.Y;
+		if (legs)
+		{
+			int pnum = pawn.PlayerNumber();
+			int a = RS_VRLegs.IX(pnum, 0), b = RS_VRLegs.IX(pnum, 1);
+			if (legs.planted[a] && legs.planted[b])
+			{
+				baseX = (legs.plant[a].x + legs.plant[b].x) * 0.5;
+				baseY = (legs.plant[a].y + legs.plant[b].y) * 0.5;
+			}
+			else if (legs.planted[a]) { baseX = legs.plant[a].x; baseY = legs.plant[a].y; }
+			else if (legs.planted[b]) { baseX = legs.plant[b].x; baseY = legs.plant[b].y; }
+		}
+		double dx = pawn.HmdPos.X - baseX;
+		double dy = pawn.HmdPos.Y - baseY;
 		double fx = cos(mBodyYaw), fy = sin(mBodyYaw);
 		double rx = sin(mBodyYaw), ry = -cos(mBodyYaw);
 		double fwd  = dx * fx + dy * fy;
@@ -3640,6 +3727,7 @@ class RS_VRBodyRig : EventHandler
 		tickFingers(pawn);
 		tickLean(pawn);
 		tickMirror(pawn);
+		hideGloves(pawn);
 		syncPawnSprite(pawn);
 		syncHeadCopy(pawn);
 		diagBurst(pawn);

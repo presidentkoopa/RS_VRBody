@@ -236,6 +236,28 @@ class RS_VRLegs play
 		Vector3 vel = pawn.Vel;
 		double speed = (vel.x * vel.x + vel.y * vel.y) > 0 ? sqrt(vel.x * vel.x + vel.y * vel.y) : 0;
 
+		// A STRIDE HAS TO KEEP UP, AND AT SPEED IT DID NOT.
+		//
+		// The swing took a FIXED number of tics and a stride started after a FIXED amount
+		// of drift, both tuned at walking pace. Run, and the body covers far more ground
+		// during those same seven tics than the foot is travelling, so every foot lands
+		// behind where it was aimed and is instantly out of position again -- which reads
+		// exactly as the owner described it: "they do nicely when taking baby steps but
+		// moving at speed is like hovering with dangly legs".
+		//
+		// Two things scale, because a person running does BOTH: the legs swing FASTER and
+		// the strides get LONGER. Scaling only the rate gives a sprinting mince; scaling
+		// only the stride gives slow-motion lunges.
+		//
+		// Referenced to rs_legs_runspeed, map units per tic, about a Doom run. Clamped so
+		// a swing can never take fewer than two tics -- below that the foot teleports and
+		// the arc is invisible.
+		double refSpd = MAX(1.0, cvf("rs_legs_runspeed", 9.0));
+		double fast   = clamp(speed / refSpd, 0.0, 1.5);
+		trig *= 1.0 + fast * cvf("rs_legs_stride_gain", 0.85);
+		double stepT2 = MAX(2.0, cvf("rs_legs_steptics", STEP_TICS) / (1.0 + fast * cvf("rs_legs_rate_gain", 1.30)));
+		rate = 1.0 / stepT2;
+
 		// JUMPING: THE FEET COME WITH YOU.
 		//
 		// Every foot target below is placed on the FLOOR (groundAt). That is right for

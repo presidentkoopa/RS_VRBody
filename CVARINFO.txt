@@ -783,7 +783,10 @@ user float rs_legs_jump_tuck      = 0.78;  // how far the legs tuck up in the ai
 user float rs_body_mirror_dist = 96.0;   // how far in front of you it stands
 user float rs_body_mirror_up   = 34.0;   // its centre above your feet
 user float rs_body_mirror_fov  = 70.0;   // how much of you it takes in
-user int   rs_body_wrist_turn  = 0;      // 0 / 90 / 180 / 270 -- the hand's roll on the wrist
+// Replaces rs_body_wrist_turn, which is pinned at 0 in the owner's ini and so could
+// never receive a corrected default. 270 cancels the 90-degree right rotation both
+// hands showed in the headset.
+user int   rs_body_wristroll   = 0;    // 0 / 90 / 180 / 270 -- the hand's roll on the wrist
 user float rs_body_wrist_roll_share = 0.6; // how much wrist roll the forearm takes, not the hand
 user bool  rs_body_hide_pawn        = true;  // hide the stock marine sprite while a body is worn
 user float rs_body_mirror_standoff  = 8.0;   // camera clear of its own panel
@@ -792,3 +795,7 @@ user float rs_body_mirror_standoff  = 8.0;   // camera clear of its own panel
 user bool  rs_body_weight_lean = true;
 user float rs_body_weight_span = 18.0;   // lb carried for the full backward lean
 user float rs_body_weight_max  = 9.0;    // degrees of it
+// The stride keeps up at speed: legs swing faster AND strides get longer.
+user float rs_legs_runspeed    = 9.0;   // map units per tic that counts as a full run
+user float rs_legs_stride_gain = 0.85;  // how much longer a stride gets at that speed
+user float rs_legs_rate_gain   = 1.30;  // how much faster the swing gets at that speed

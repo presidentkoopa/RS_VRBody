@@ -1083,46 +1083,26 @@ Model RS_VRMirror
 Model RS_PartBodyMarineHead
 {
 	Path "models/marine"
-	Model 0 "marine_whole.iqm"
-	SurfaceSkin 0 0  "invisible.png"
-	SurfaceSkin 0 1  "invisible.png"
-	SurfaceSkin 0 2  "invisible.png"
-	SurfaceSkin 0 3  "invisible.png"
-	SurfaceSkin 0 4  "invisible.png"
-	SurfaceSkin 0 5  "invisible.png"
-	SurfaceSkin 0 6  "invisible.png"
-	SurfaceSkin 0 7  "invisible.png"
-	SurfaceSkin 0 8  "doomslayer_helmet_visor_set3_hq_skin.png"
-	SurfaceSkin 0 9  "doomslayer_helmet_set3_skin.png"
-	SurfaceSkin 0 10 "doomslayer_helmet_interior_set3_skin.png"
-	SurfaceSkin 0 11 "doomslayer_hair.png"
-	SurfaceSkin 0 12 "doomslayer_head.png"
-	SurfaceSkin 0 13 "doomslayer_teeth.png"
-	SurfaceSkin 0 14 "doomslayer_eyes.png"
+	Model 0 "marine_head.iqm"
+	SurfaceSkin 0 0 "doomslayer_helmet_visor_set3_hq_skin.png"
+	SurfaceSkin 0 1 "doomslayer_helmet_set3_skin.png"
+	SurfaceSkin 0 2 "doomslayer_helmet_interior_set3_skin.png"
+	SurfaceSkin 0 3 "doomslayer_hair.png"
+	SurfaceSkin 0 4 "doomslayer_head.png"
+	SurfaceSkin 0 5 "doomslayer_teeth.png"
+	SurfaceSkin 0 6 "doomslayer_eyes.png"
 	Scale 1.0 1.0 1.0
 	PlacementCVars rs_bp_marinebody
 	BaseFrame
 }
 
-// ==========================================================================
-// THE PRAETOR'S HELMET, AS ITS OWN ACTOR. Same trick as the marine's head.
-//
-// WHICH SURFACES WERE MEASURED, NOT ASSUMED. The body spans z -0.03..64.68 and
-// surfaces 3 and 4 (praetor_helmet_*) sit at 55.1..64.7 -- the very top -- with
-// 12 (praetor_visor_*) at 57.6..61.9. Surface 10 is named "glass" and looks like
-// a visor until you measure it: 50.3..51.8, chest height. It is torso glass and
-// stays with the body.
-//
-// He has no face mesh at all -- he is always helmeted -- so "draw your own face"
-// has nothing to do on him and only helmet and visor apply.
-// ==========================================================================
 Model RS_PartBodyPraetorHead
 {
 	Path "models/praetor"
-	Model 0 "praetor_body.iqm"
-	SurfaceSkin 0 3  "doomslayer_praetor_1001.png"
-	SurfaceSkin 0 4  "doomslayer_praetor_1011.png"
-	SurfaceSkin 0 12 "doomslayer_praetor_1001_visor_solid.png"
+	Model 0 "praetor_head.iqm"
+	SurfaceSkin 0 0 "doomslayer_praetor_1001.png"
+	SurfaceSkin 0 1 "doomslayer_praetor_1011.png"
+	SurfaceSkin 0 2 "doomslayer_praetor_1001_visor_solid.png"
 	Scale 1.0 1.0 1.0
 	PlacementCVars rs_bp_praetorbody
 	BaseFrame

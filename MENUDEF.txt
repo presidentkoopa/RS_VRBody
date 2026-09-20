@@ -257,7 +257,7 @@ OptionMenu "RS_VRBodyMain"
 	Slider    "  How much it takes in",        "rs_body_mirror_fov",    30.0, 140.0, 5.0, 0
 	StaticText ""
 	StaticText "Wrists", 1
-	Option    "Wrist roll",                    "rs_body_wrist_turn",    "RSBodyWristTurn"
+	Option    "Wrist roll",                    "rs_body_wristroll",     "RSBodyWristTurn"
 	StaticText "If the hands are rolled the wrong way round on the", "DarkGray"
 	StaticText "wrist, step through these until they sit right.", "DarkGray"
 	Slider    "Roll taken by the forearm",     "rs_body_wrist_roll_share", 0.0, 1.0, 0.05, 2
