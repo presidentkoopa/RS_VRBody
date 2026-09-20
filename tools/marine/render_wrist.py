@@ -228,4 +228,6 @@ def main():
                "%s_split%02d.png" % (prefix, int(share * 100)))
 
 
-main()
+
+if __name__ == "__main__":
+    main()

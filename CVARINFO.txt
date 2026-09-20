@@ -757,7 +757,11 @@ user float rs_armik_wb_lf_pole_back = 0.35;
 // knuckle spread lands on local X). The SIGN is not measurable from outside the
 // headset, so it is a slider -- flip it if the fingers bend backwards.
 user bool  rs_body_fingers       = true;
-user float rs_body_finger_sign   = -1.0;   // -1 or 1: which way the hand closes
+// +1 CLOSES THE FIST, and this was shipped at -1 by guess. Settled by RENDERING it
+// (tools/marine/render_pose.py): at -1 the fingers splay outward, at +1 they fold into
+// the palm with the knuckles reading correctly. The axis was always measured; the
+// direction was the part I could not see and did not look at until now.
+user float rs_body_finger_sign   = 1.0;    // -1 or 1: which way the hand closes
 user float rs_body_finger_curl   = 1.0;    // curl while holding something
 user float rs_body_finger_rest   = 0.15;   // curl with an empty hand
 user float rs_body_finger_thumb  = 0.6;    // the thumb rides the same hinge, reduced

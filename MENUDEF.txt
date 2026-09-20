@@ -121,8 +121,8 @@ OptionValue "RSBodyFlipDir"
 
 OptionValue "RSBodyFingerSign"
 {
-	-1.0, "Inwards (make a fist)"
-	 1.0, "Outwards (flip if they bend back)"
+	 1.0, "Inwards (make a fist)"
+	-1.0, "Outwards (flip if they bend back)"
 }
 
 // Quarter turns for an arm's fit Yaw. The facing is found on screen: pick the one
