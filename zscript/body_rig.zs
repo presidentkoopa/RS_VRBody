@@ -1024,15 +1024,53 @@ class RS_VRBodyRig : EventHandler
 	//
 	// For the solver's own internals -- shoulder, elbow, gap, stretch -- `r_reachchain_debug 1`
 	// in the console is the tool, and it belongs to whoever is at the console.
-	private int  diagTics;
-	private bool diagDone;
+	private int    diagTics;
+	private double diagAir, diagHeldR, diagHeldL, diagHead;
+	private double diagMaxLbs, diagMaxLean, diagMaxReach;
 
 	private void diagBurst(PlayerPawn pawn)
 	{
 		if (!cvb("rs_body_diag", false)) return;
-		if (diagDone || !pawn || !parts[RSLOT_BODY]) return;
+		if (!pawn || !parts[RSLOT_BODY]) return;
 
-		if (diagTics == 70)
+		// STICKY, because a once-a-second snapshot misses the moment being reported.
+		// "It looked wrong when I jumped" is useless if the sample landed while standing.
+		// These accumulate from level start and answer "did this EVER happen", which is
+		// the question actually being asked.
+		diagTics++;
+		bool praetorNow = (cvs("rs_body_whole_style", "marine") == "praetor");
+		if (pawn.pos.z > pawn.floorz + 1.0 && !pawn.bOnMobj) diagAir = 1;
+		if (handHolds(pawn, 0)) diagHeldR = 1;
+		if (handHolds(pawn, 1)) diagHeldL = 1;
+		if (headCopy) diagHead = 1;
+		double wR = heldLbs(pawn, 0), wL = heldLbs(pawn, 1);
+		if (wR + wL > diagMaxLbs) diagMaxLbs = wR + wL;
+		// NO HEADSET, NO DISTANCES. HmdPos is (0,0,0) whenever the VR backend has not
+		// written it -- every non-VR run, and any frame the runtime drops -- and the
+		// distance from the pawn to the origin is then thousands of map units. These are
+		// STICKY MAXIMA, so ONE such frame would poison lean_max and reach_max for the
+		// rest of the level and make a real report unreadable. Caught on the very first
+		// boot test, which reported a 4427-unit lean.
+		double leanNow = 0;
+		bool haveHmd = (pawn.HmdPos != (0, 0, 0));
+		if (haveHmd)
+		{
+			double dx = pawn.HmdPos.X - pawn.pos.X, dy = pawn.HmdPos.Y - pawn.pos.Y;
+			leanNow = sqrt(dx * dx + dy * dy);
+			if (leanNow > diagMaxLean) diagMaxLean = leanNow;
+			for (int h = 0; h < 2; ++h)
+				if (handTgt[h] && handTgt[h].pos != (0, 0, 0))
+				{
+					double d = (handTgt[h].pos - pawn.HmdPos).Length();
+					if (d > diagMaxReach) diagMaxReach = d;
+				}
+		}
+
+		// ROLLING, ONCE A SECOND, OVERWRITING. The old report fired once at tic 70 and
+		// stopped, so it described the first two seconds of a level and nothing the owner
+		// ever actually reported. This one always holds the LATEST state plus the sticky
+		// extremes above, so "check the log" has something in it whenever he says it.
+		if (diagTics % 35 == 0)
 		{
 			Vector3 bodyAt = slotWorldAt(pawn, RSLOT_BODY);
 			int sr, sl;
@@ -1077,12 +1115,50 @@ class RS_VRBodyRig : EventHandler
 				level.JSONProfileSetDouble("l_dist_from_seat", (hl.pos - bodyAt).Length());
 				level.JSONProfileSetDouble("l_dist_from_hmd", (hl.pos - pawn.HmdPos).Length());
 			}
+			// ---- everything shipped today, and whether it is actually on ----
+			level.JSONProfileSetDouble("secs", diagTics / 35.0);
+			level.JSONProfileSetDouble("have_hmd", haveHmd ? 1 : 0);
+			level.JSONProfileSetDouble("praetor", praetorNow ? 1 : 0);
+			// Which services answered. A missing one explains a dead feature outright:
+			// no pose service = fingers cannot know what is held; no weight service =
+			// no sag and no load, and both would otherwise look like a tuning problem.
+			level.JSONProfileSetDouble("svc_pose", poseSv ? 1 : 0);
+			level.JSONProfileSetDouble("svc_grip", gripSv ? 1 : 0);
+			level.JSONProfileSetDouble("svc_weight", wgtSv ? 1 : 0);
+			// Fingers
+			level.JSONProfileSetDouble("held_r_now", handHolds(pawn, 0) ? 1 : 0);
+			level.JSONProfileSetDouble("held_l_now", handHolds(pawn, 1) ? 1 : 0);
+			level.JSONProfileSetDouble("ever_held_r", diagHeldR);
+			level.JSONProfileSetDouble("ever_held_l", diagHeldL);
+			level.JSONProfileSetDouble("fingers_on", cvb("rs_body_fingers", true) ? 1 : 0);
+			level.JSONProfileSetDouble("finger_sign", cvf("rs_body_finger_sign", -1.0));
+			// Wrist
+			level.JSONProfileSetDouble("wrist_turn", cvf("rs_body_wrist_turn", 0));
+			level.JSONProfileSetDouble("wrist_roll_share", cvf("rs_body_wrist_roll_share", 0.6));
+			// Lean, and how far he actually leaned
+			level.JSONProfileSetDouble("lean_on", cvb("rs_body_lean", true) ? 1 : 0);
+			level.JSONProfileSetDouble("lean_now", leanNow);
+			level.JSONProfileSetDouble("lean_max", diagMaxLean);
+			level.JSONProfileSetDouble("lean_span", cvf("rs_body_lean_span", 14.0));
+			// Jump
+			level.JSONProfileSetDouble("jump_on", cvb("rs_legs_jump", true) ? 1 : 0);
+			level.JSONProfileSetDouble("airborne_now", (pawn.pos.z > pawn.floorz + 1.0 && !pawn.bOnMobj) ? 1 : 0);
+			level.JSONProfileSetDouble("ever_airborne", diagAir);
+			// Head copy
+			level.JSONProfileSetDouble("head_copy_now", headCopy ? 1 : 0);
+			level.JSONProfileSetDouble("ever_head_copy", diagHead);
+			level.JSONProfileSetDouble("show_face", cvb("rs_body_show_face", true) ? 1 : 0);
+			level.JSONProfileSetDouble("show_helmet", cvb("rs_body_show_helmet", true) ? 1 : 0);
+			// Weight
+			level.JSONProfileSetDouble("lbs_r", wR);
+			level.JSONProfileSetDouble("lbs_l", wL);
+			level.JSONProfileSetDouble("lbs_max", diagMaxLbs);
+			level.JSONProfileSetDouble("weight_lean_on", cvb("rs_body_weight_lean", true) ? 1 : 0);
+			// How far the markers ever got from the head -- proof the targets track at all
+			level.JSONProfileSetDouble("reach_max", diagMaxReach);
 			level.JSONProfileSave("bodydiag");
-			Console.Printf("\c[Gold][BODYDIAG] written to rs_profiles/bodydiag.json");
-			diagDone = true;
 			return;
 		}
-		diagTics++;
 	}
 
 	// ---- THE HAND TARGETS -------------------------------------------------
