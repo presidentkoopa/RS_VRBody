@@ -2609,9 +2609,78 @@ class RS_VRBodyRig : EventHandler
 	// Safe against the arm solve: the chain owns the upper arm, forearm and WRIST only.
 	// Fingers hang under the wrist, so nothing here fights the solver -- and when the
 	// wrist turns, the fingers ride it, which is what a wrist turning means.
-	const FING_A0 = 65.0;	// knuckle, degrees at full curl
+	const FING_A0 = 65.0;	// knuckle, degrees from open to fully closed
 	const FING_A1 = 75.0;	// middle -- a real hand closes most here, so these differ
 	const FING_A2 = 55.0;	// tip
+
+	// ---- A HAND POSE IS FIFTEEN NUMBERS, NOT ONE --------------------------
+	//
+	// ONE CURL SCALAR MEANS A SUPPORT GRIP, A PISTOL GRIP AND A FIST ARE THE SAME SHAPE
+	// AT DIFFERENT STRENGTHS. They are not. An arm that reaches a forend perfectly still
+	// does not look like a hand ON a forend, because a forend hold has a near-straight
+	// thumb and half-curled fingers while a fist has neither. That is the whole reason
+	// "hands posed on the guns" was not solved by getting the arm right.
+	//
+	// Five fingers x three joints, and the value is HOW OPEN: 1.0 straight, 0.0 fully
+	// closed. Openness rather than curl deliberately -- it is FRIK's convention
+	// (HandPoseData.h), so poses published by a project that has shipped this for years
+	// can be read across without being reinterpreted, and its off-hand weapon grip below
+	// is taken from there unchanged.
+	//
+	// The open pose is the MESH'S OWN BIND POSE and the closed pose is the bind pose
+	// turned by the measured hinge. So the pair is derived from the file rather than
+	// authored by hand, and a new body needs no artist -- only its hinge axis, which is
+	// measurable (every marine finger bone runs down its own local -Z; the knuckle spread
+	// lands on local X).
+	const FPOSE_OPEN    = 0;
+	const FPOSE_FIST    = 1;
+	const FPOSE_SUPPORT = 2;	// the off hand on a forend
+	const FPOSE_PISTOL  = 3;	// a grip with the index off the trigger
+	const FPOSE_COUNT   = 4;
+
+	// [pose][finger*3 + joint]; finger order thumb, index, middle, ring, pinky.
+	private double fpose[FPOSE_COUNT * 15];
+	private bool   fposeReady;
+
+	private void fposeSet(int pose, int finger, double a, double b, double c)
+	{
+		int i = pose * 15 + finger * 3;
+		fpose[i] = a; fpose[i + 1] = b; fpose[i + 2] = c;
+	}
+
+	private void fposeInit()
+	{
+		if (fposeReady) return;
+		fposeReady = true;
+		// Open: everything straight.
+		for (int f = 0; f < 5; ++f) fposeSet(FPOSE_OPEN, f, 1.0, 1.0, 1.0);
+		// Fist: closed, thumb a little less so it lies over the fingers rather than in them.
+		fposeSet(FPOSE_FIST, 0, 0.30, 0.25, 0.20);
+		for (int f = 1; f < 5; ++f) fposeSet(FPOSE_FIST, f, 0.05, 0.05, 0.05);
+		// Support -- FRIK's OFFHAND_WEAPON_GRIP_POSE, unchanged. Thumb near straight,
+		// fingers half curled: a hand lying ALONG a forend, not gripping a ball.
+		fposeSet(FPOSE_SUPPORT, 0, 1.00, 1.00, 0.90);
+		fposeSet(FPOSE_SUPPORT, 1, 0.60, 0.60, 0.60);
+		fposeSet(FPOSE_SUPPORT, 2, 0.50, 0.60, 0.55);
+		fposeSet(FPOSE_SUPPORT, 3, 0.50, 0.50, 0.50);
+		fposeSet(FPOSE_SUPPORT, 4, 0.50, 0.50, 0.50);
+		// Pistol: three fingers round the grip, index straight along the frame, thumb
+		// down the side. The index is the difference between holding and firing.
+		fposeSet(FPOSE_PISTOL, 0, 0.55, 0.50, 0.45);
+		fposeSet(FPOSE_PISTOL, 1, 0.85, 0.90, 0.90);
+		fposeSet(FPOSE_PISTOL, 2, 0.15, 0.10, 0.10);
+		fposeSet(FPOSE_PISTOL, 3, 0.15, 0.10, 0.10);
+		fposeSet(FPOSE_PISTOL, 4, 0.15, 0.10, 0.10);
+	}
+
+	// Blend between two poses, so a hand closing onto a gun passes through the shapes in
+	// between rather than snapping. k is 0 at `from`, 1 at `to`.
+	private double fposeAt(int from, int to, double k, int finger, int joint)
+	{
+		int i = finger * 3 + joint;
+		double a = fpose[from * 15 + i], b = fpose[to * 15 + i];
+		return a + (b - a) * clamp(k, 0.0, 1.0);
+	}
 
 	private Service gripSv;
 	private int     gripSvWait;
@@ -2723,12 +2792,60 @@ class RS_VRBodyRig : EventHandler
 	// SILENT ON A BONE THAT IS NOT THERE. A caller can legitimately hand this a rig
 	// without the joint: an RS glove worn on a Praetor body is exactly that, and so is
 	// any body variant with a simpler hand. Checking beats finding out at runtime.
-	private void curlFinger(Actor b, Vector3 axis, Name j0, Name j1, Name j2, double curl, double sign, double dur)
+	// One finger, three joints, each at its OWN openness. The angle is measured from the
+	// mesh's bind pose (open) toward the measured hinge (closed), so (1 - openness) is how
+	// far along that pair this joint sits -- the blend FRIK does with a matrix pair, done
+	// with the hinge we can measure instead of matrices we would have to author.
+	private void poseFinger(Actor b, Vector3 axis, Name j0, Name j1, Name j2,
+	                        double o0, double o1, double o2, double sign, double dur)
 	{
 		if (!b || b.GetBoneIndex(j0) < 0) return;
-		b.SetNamedBoneRotation(j0, Quat.AxisAngle(axis, sign * FING_A0 * curl), SB_ADD, dur);
-		b.SetNamedBoneRotation(j1, Quat.AxisAngle(axis, sign * FING_A1 * curl), SB_ADD, dur);
-		b.SetNamedBoneRotation(j2, Quat.AxisAngle(axis, sign * FING_A2 * curl), SB_ADD, dur);
+		b.SetNamedBoneRotation(j0, Quat.AxisAngle(axis, sign * FING_A0 * (1.0 - o0)), SB_ADD, dur);
+		b.SetNamedBoneRotation(j1, Quat.AxisAngle(axis, sign * FING_A1 * (1.0 - o1)), SB_ADD, dur);
+		b.SetNamedBoneRotation(j2, Quat.AxisAngle(axis, sign * FING_A2 * (1.0 - o2)), SB_ADD, dur);
+	}
+
+	// A whole hand at one blended pose. `thumb` scales the thumb's travel only -- it rides
+	// the same hinge as the fingers, which is an approximation the measurement is explicit
+	// about: the thumb reads +0.48 on local X where the fingers read -0.99, because a thumb
+	// is rotated out of the hand's plane by design. A real thumb wants its own measured
+	// hinge, and that is a separate job with the owner watching.
+	private void poseBodyHand(Actor b, Vector3 axis, bool right, int from, int to, double k,
+	                      double sign, double dur, double thumb)
+	{
+		fposeInit();
+		for (int fg = 0; fg < 5; ++fg)
+		{
+			double o0 = fposeAt(from, to, k, fg, 0);
+			double o1 = fposeAt(from, to, k, fg, 1);
+			double o2 = fposeAt(from, to, k, fg, 2);
+			if (fg == 0)   // thumb travel scaled, see above
+			{
+				o0 = 1.0 - (1.0 - o0) * thumb;
+				o1 = 1.0 - (1.0 - o1) * thumb;
+				o2 = 1.0 - (1.0 - o2) * thumb;
+			}
+			// LITERAL NAMES, NOT BUILT FROM STRINGS. A Name assembled with `..` at runtime
+			// is the kind of thing that compiles and then behaves differently than read, and
+			// this package has already paid for one of those. Ten explicit branches cost
+			// nothing and cannot surprise anyone.
+			if (right)
+			{
+				if      (fg == 0) poseFinger(b, axis, 'bip_thumb_0_R',  'bip_thumb_1_R',  'bip_thumb_2_R',  o0, o1, o2, sign, dur);
+				else if (fg == 1) poseFinger(b, axis, 'bip_index_0_R',  'bip_index_1_R',  'bip_index_2_R',  o0, o1, o2, sign, dur);
+				else if (fg == 2) poseFinger(b, axis, 'bip_middle_0_R', 'bip_middle_1_R', 'bip_middle_2_R', o0, o1, o2, sign, dur);
+				else if (fg == 3) poseFinger(b, axis, 'bip_ring_0_R',   'bip_ring_1_R',   'bip_ring_2_R',   o0, o1, o2, sign, dur);
+				else              poseFinger(b, axis, 'bip_pinky_0_R',  'bip_pinky_1_R',  'bip_pinky_2_R',  o0, o1, o2, sign, dur);
+			}
+			else
+			{
+				if      (fg == 0) poseFinger(b, axis, 'bip_thumb_0_L',  'bip_thumb_1_L',  'bip_thumb_2_L',  o0, o1, o2, sign, dur);
+				else if (fg == 1) poseFinger(b, axis, 'bip_index_0_L',  'bip_index_1_L',  'bip_index_2_L',  o0, o1, o2, sign, dur);
+				else if (fg == 2) poseFinger(b, axis, 'bip_middle_0_L', 'bip_middle_1_L', 'bip_middle_2_L', o0, o1, o2, sign, dur);
+				else if (fg == 3) poseFinger(b, axis, 'bip_ring_0_L',   'bip_ring_1_L',   'bip_ring_2_L',   o0, o1, o2, sign, dur);
+				else              poseFinger(b, axis, 'bip_pinky_0_L',  'bip_pinky_1_L',  'bip_pinky_2_L',  o0, o1, o2, sign, dur);
+			}
+		}
 	}
 
 	// THE PRAETOR'S FIVE, ON THE ACTOR THAT ACTUALLY DRAWS THAT HAND.
@@ -2742,24 +2859,41 @@ class RS_VRBodyRig : EventHandler
 	//
 	// ValveBiped numbers fingers 0 thumb, 1 index, 2 middle, 3 ring, 4 pinky, each with
 	// two more joints suffixed 1 and 2.
-	private void curlPraetorHand(Actor h, bool rightMesh, double curl, double sign, double dur, double thumb)
+	private void posePraetorHand(Actor h, bool rightMesh, int from, int to, double k,
+	                             double sign, double dur, double thumb)
 	{
+		fposeInit();
 		Vector3 ax = (0, 0, 1);		// measured: knuckle spread lands on local Z, +0.83..+0.99
-		if (rightMesh)
+		for (int fg = 0; fg < 5; ++fg)
 		{
-			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger1', 'ValveBiped.Bip01_R_Finger11', 'ValveBiped.Bip01_R_Finger12', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger2', 'ValveBiped.Bip01_R_Finger21', 'ValveBiped.Bip01_R_Finger22', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger3', 'ValveBiped.Bip01_R_Finger31', 'ValveBiped.Bip01_R_Finger32', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger4', 'ValveBiped.Bip01_R_Finger41', 'ValveBiped.Bip01_R_Finger42', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_R_Finger0', 'ValveBiped.Bip01_R_Finger01', 'ValveBiped.Bip01_R_Finger02', curl * thumb, sign, dur);
-		}
-		else
-		{
-			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger1', 'ValveBiped.Bip01_L_Finger11', 'ValveBiped.Bip01_L_Finger12', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger2', 'ValveBiped.Bip01_L_Finger21', 'ValveBiped.Bip01_L_Finger22', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger3', 'ValveBiped.Bip01_L_Finger31', 'ValveBiped.Bip01_L_Finger32', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger4', 'ValveBiped.Bip01_L_Finger41', 'ValveBiped.Bip01_L_Finger42', curl, sign, dur);
-			curlFinger(h, ax, 'ValveBiped.Bip01_L_Finger0', 'ValveBiped.Bip01_L_Finger01', 'ValveBiped.Bip01_L_Finger02', curl * thumb, sign, dur);
+			double o0 = fposeAt(from, to, k, fg, 0);
+			double o1 = fposeAt(from, to, k, fg, 1);
+			double o2 = fposeAt(from, to, k, fg, 2);
+			if (fg == 0)
+			{
+				o0 = 1.0 - (1.0 - o0) * thumb;
+				o1 = 1.0 - (1.0 - o1) * thumb;
+				o2 = 1.0 - (1.0 - o2) * thumb;
+			}
+			// ValveBiped numbers fingers 0 thumb, 1 index, 2 middle, 3 ring, 4 pinky -- so
+			// the pose table's order (thumb first) and the rig's numbering agree by luck,
+			// not by design. Spelled out rather than computed, same reason as the marine.
+			if (rightMesh)
+			{
+				if      (fg == 0) poseFinger(h, ax, 'ValveBiped.Bip01_R_Finger0', 'ValveBiped.Bip01_R_Finger01', 'ValveBiped.Bip01_R_Finger02', o0, o1, o2, sign, dur);
+				else if (fg == 1) poseFinger(h, ax, 'ValveBiped.Bip01_R_Finger1', 'ValveBiped.Bip01_R_Finger11', 'ValveBiped.Bip01_R_Finger12', o0, o1, o2, sign, dur);
+				else if (fg == 2) poseFinger(h, ax, 'ValveBiped.Bip01_R_Finger2', 'ValveBiped.Bip01_R_Finger21', 'ValveBiped.Bip01_R_Finger22', o0, o1, o2, sign, dur);
+				else if (fg == 3) poseFinger(h, ax, 'ValveBiped.Bip01_R_Finger3', 'ValveBiped.Bip01_R_Finger31', 'ValveBiped.Bip01_R_Finger32', o0, o1, o2, sign, dur);
+				else              poseFinger(h, ax, 'ValveBiped.Bip01_R_Finger4', 'ValveBiped.Bip01_R_Finger41', 'ValveBiped.Bip01_R_Finger42', o0, o1, o2, sign, dur);
+			}
+			else
+			{
+				if      (fg == 0) poseFinger(h, ax, 'ValveBiped.Bip01_L_Finger0', 'ValveBiped.Bip01_L_Finger01', 'ValveBiped.Bip01_L_Finger02', o0, o1, o2, sign, dur);
+				else if (fg == 1) poseFinger(h, ax, 'ValveBiped.Bip01_L_Finger1', 'ValveBiped.Bip01_L_Finger11', 'ValveBiped.Bip01_L_Finger12', o0, o1, o2, sign, dur);
+				else if (fg == 2) poseFinger(h, ax, 'ValveBiped.Bip01_L_Finger2', 'ValveBiped.Bip01_L_Finger21', 'ValveBiped.Bip01_L_Finger22', o0, o1, o2, sign, dur);
+				else if (fg == 3) poseFinger(h, ax, 'ValveBiped.Bip01_L_Finger3', 'ValveBiped.Bip01_L_Finger31', 'ValveBiped.Bip01_L_Finger32', o0, o1, o2, sign, dur);
+				else              poseFinger(h, ax, 'ValveBiped.Bip01_L_Finger4', 'ValveBiped.Bip01_L_Finger41', 'ValveBiped.Bip01_L_Finger42', o0, o1, o2, sign, dur);
+			}
 		}
 	}
 
@@ -2788,7 +2922,10 @@ class RS_VRBodyRig : EventHandler
 			{
 				Actor hp = parts[h == 0 ? RSLOT_HAND_MAIN : RSLOT_HAND_OFF];
 				if (!hp) continue;
-				curlPraetorHand(hp, h == 0, handHolds(pawn, h) ? grip : rest, sign, dur, thmb);
+				int pwant = handHolds(pawn, h) ? (h == 0 ? FPOSE_PISTOL : FPOSE_SUPPORT) : FPOSE_OPEN;
+				double pk = (pwant == FPOSE_OPEN) ? clamp(rest, 0.0, 1.0) : clamp(grip, 0.0, 1.0);
+				int pfrom = (pwant == FPOSE_OPEN) ? FPOSE_FIST : FPOSE_OPEN;
+				posePraetorHand(hp, h == 0, pfrom, pwant, pk, sign, dur, thmb);
 			}
 			return;
 		}
@@ -2799,30 +2936,18 @@ class RS_VRBodyRig : EventHandler
 			// The SAME pairing the arms use, so a hand never closes on the controller
 			// its own arm is not reaching. armHand is the one place that decides this.
 			int hand = armHand(right ? RSLOT_ARM_R : RSLOT_ARM_L);
-			double curl = handHolds(pawn, hand) ? grip : rest;
-			Vector3 ax = (1, 0, 0);		// measured on this rig: knuckle spread lands on local X
+			Vector3 ax = (1, 0, 0);   // measured on this rig: knuckle spread lands on local X
 
-			if (right)
-			{
-				curlFinger(b, ax, 'bip_index_0_R',  'bip_index_1_R',  'bip_index_2_R',  curl, sign, dur);
-				curlFinger(b, ax, 'bip_middle_0_R', 'bip_middle_1_R', 'bip_middle_2_R', curl, sign, dur);
-				curlFinger(b, ax, 'bip_ring_0_R',   'bip_ring_1_R',   'bip_ring_2_R',   curl, sign, dur);
-				curlFinger(b, ax, 'bip_pinky_0_R',  'bip_pinky_1_R',  'bip_pinky_2_R',  curl, sign, dur);
-				// THE THUMB IS NOT ON THE OTHERS' HINGE and the measurement says so:
-				// it reads +0.48 on X where the fingers read -0.99, because a thumb is
-				// rotated out of the hand's plane by design. Same axis at a reduced
-				// angle is an approximation, and an honest one -- a real thumb needs its
-				// own measured hinge, which is a separate job with the owner watching.
-				curlFinger(b, ax, 'bip_thumb_0_R',  'bip_thumb_1_R',  'bip_thumb_2_R',  curl * thmb, sign, dur);
-			}
-			else
-			{
-				curlFinger(b, ax, 'bip_index_0_L',  'bip_index_1_L',  'bip_index_2_L',  curl, sign, dur);
-				curlFinger(b, ax, 'bip_middle_0_L', 'bip_middle_1_L', 'bip_middle_2_L', curl, sign, dur);
-				curlFinger(b, ax, 'bip_ring_0_L',   'bip_ring_1_L',   'bip_ring_2_L',   curl, sign, dur);
-				curlFinger(b, ax, 'bip_pinky_0_L',  'bip_pinky_1_L',  'bip_pinky_2_L',  curl, sign, dur);
-				curlFinger(b, ax, 'bip_thumb_0_L',  'bip_thumb_1_L',  'bip_thumb_2_L',  curl * thmb, sign, dur);
-			}
+			// WHICH SHAPE, not just how hard. An empty hand relaxes toward open; the MAIN
+			// hand holding something takes the pistol shape (three fingers round the grip,
+			// index along the frame); the OFF hand takes the support shape (thumb near
+			// straight, fingers half curled) because when it is on a gun it is on a forend.
+			// That distinction is the entire reason this stopped being one number.
+			int want = handHolds(pawn, hand) ? (hand == 0 ? FPOSE_PISTOL : FPOSE_SUPPORT)
+			                                 : FPOSE_OPEN;
+			double k = (want == FPOSE_OPEN) ? clamp(rest, 0.0, 1.0) : clamp(grip, 0.0, 1.0);
+			int from = (want == FPOSE_OPEN) ? FPOSE_FIST : FPOSE_OPEN;
+			poseBodyHand(b, ax, right, from, want, k, sign, dur, thmb);
 		}
 	}
 
